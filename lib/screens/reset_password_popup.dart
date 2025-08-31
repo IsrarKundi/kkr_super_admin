@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../widgets/modal_popup.dart';
 import '../widgets/close_button.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/gradient_button.dart';
+import '../controller/getx_controllers/auth_controller.dart';
+import '../models/utils/snackbars.dart';
 
 class ResetPasswordPopup extends StatefulWidget {
   final VoidCallback onClose;
@@ -15,6 +18,31 @@ class ResetPasswordPopup extends StatefulWidget {
 
 class _ResetPasswordPopupState extends State<ResetPasswordPopup> {
   final TextEditingController _emailController = TextEditingController();
+  final AuthController _authController = Get.find<AuthController>();
+
+  void _onNext() async {
+    if (_emailController.text.isEmpty) {
+      showNativeErrorSnackbar(context, 'Please enter your email');
+      return;
+    }
+
+    // Validate email format
+    if (!GetUtils.isEmail(_emailController.text)) {
+      showNativeErrorSnackbar(context, 'Please enter a valid email');
+      return;
+    }
+
+    // Call forget password API
+    final success = await _authController.forgetPassword(
+      email: _emailController.text,
+      context: context,
+    );
+
+    // If successful, proceed to next step
+    if (success) {
+      widget.onNext();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,17 +75,16 @@ class _ResetPasswordPopupState extends State<ResetPasswordPopup> {
           ),
           const SizedBox(height: 32),
           AuthTextField(
-            
             controller: _emailController,
             hintText: 'Email',
             prefixIcon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
           ),
           const SizedBox(height: 32),
-          GradientButton(
-            text: 'Next',
-            onPressed: widget.onNext,
-          ),
+          Obx(() => GradientButton(
+            text: _authController.isLoading.value ? 'Sending...' : 'Next',
+            onPressed: _authController.isLoading.value ? null : _onNext,
+          )),
         ],
       ),
     );

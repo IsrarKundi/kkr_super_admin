@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:khaabd_web/utils/colors.dart';
+import '../../controller/getx_controllers/auth_controller.dart';
 
 class Sidebar extends StatelessWidget {
   final int selectedIndex;
@@ -163,24 +165,7 @@ class Sidebar extends StatelessWidget {
           Container(margin: EdgeInsets.symmetric(horizontal: 15,vertical: 10), height: 2,color: Colors.white.withOpacity(0.50),),
           Padding(
             padding: EdgeInsets.only(bottom: isWide ? 32.0 : 12.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.logout, color: Colors.white, size: isWide ? 28 : 22),
-                if (isWide) ...[
-                  
-                  const SizedBox(width: 12,height: 10,),
-                  const Text(
-                    'Log out',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            child: _LogoutButton(isWide: isWide),
           ),
         ],
       ),
@@ -207,5 +192,86 @@ class Sidebar extends StatelessWidget {
       default:
         return Icons.circle;
     }
+  }
+}
+
+class _LogoutButton extends StatefulWidget {
+  final bool isWide;
+  
+  const _LogoutButton({Key? key, required this.isWide}) : super(key: key);
+
+  @override
+  State<_LogoutButton> createState() => _LogoutButtonState();
+}
+
+class _LogoutButtonState extends State<_LogoutButton> {
+  bool _isHovered = false;
+  final AuthController _authController = Get.find<AuthController>();
+
+  void _handleLogout() {
+    // Show confirmation dialog
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _authController.logout();
+              },
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: _handleLogout,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: _isHovered ? Colors.white.withOpacity(0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.logout, 
+                color: _isHovered ? const Color(0xFFc89849) : Colors.white, 
+                size: widget.isWide ? 28 : 22
+              ),
+              if (widget.isWide) ...[
+                const SizedBox(width: 12),
+                Text(
+                  'Log out',
+                  style: TextStyle(
+                    color: _isHovered ? const Color(0xFFc89849) : Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 } 

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../widgets/modal_popup.dart';
 import '../widgets/close_button.dart';
 import '../widgets/otp_input.dart';
 import '../widgets/gradient_button.dart';
+import '../controller/getx_controllers/auth_controller.dart';
 
 class EnterCodePopup extends StatefulWidget {
   final VoidCallback onClose;
@@ -16,6 +18,7 @@ class EnterCodePopup extends StatefulWidget {
 
 class _EnterCodePopupState extends State<EnterCodePopup> {
   late List<TextEditingController> _controllers;
+  final AuthController _authController = Get.find<AuthController>();
 
   @override
   void initState() {
@@ -24,6 +27,19 @@ class _EnterCodePopupState extends State<EnterCodePopup> {
   }
 
   String get code => _controllers.map((c) => c.text).join();
+
+  void _onNext() async {
+    if (code.length == 4) {
+      final success = await _authController.verifyOtp(
+        otp: code,
+        context: context,
+      );
+      
+      if (success) {
+        widget.onNext();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,11 +90,11 @@ class _EnterCodePopupState extends State<EnterCodePopup> {
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 32),
-          GradientButton(
-            text: 'Next',
-            onPressed: code.length == 4 ? widget.onNext : () {},
-            enabled: code.length == 4,
-          ),
+          Obx(() => GradientButton(
+            text: _authController.isLoading.value ? 'Verifying...' : 'Next',
+            onPressed: (code.length == 4 && !_authController.isLoading.value) ? _onNext : null,
+            enabled: code.length == 4 && !_authController.isLoading.value,
+          )),
         ],
       ),
     );

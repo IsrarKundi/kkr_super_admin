@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../widgets/modal_popup.dart';
 import '../widgets/close_button.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/gradient_button.dart';
+import '../controller/getx_controllers/auth_controller.dart';
+import '../models/utils/snackbars.dart';
 
 class CreateNewPasswordPopup extends StatefulWidget {
   final VoidCallback onClose;
@@ -16,8 +19,43 @@ class CreateNewPasswordPopup extends StatefulWidget {
 class _CreateNewPasswordPopupState extends State<CreateNewPasswordPopup> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
+  final AuthController _authController = Get.find<AuthController>();
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+
+  void _onNext() async {
+    // Validate password
+    if (_passwordController.text.isEmpty) {
+      showNativeErrorSnackbar(context, 'Please enter a password');
+      return;
+    }
+
+    if (_passwordController.text.length < 8) {
+      showNativeErrorSnackbar(context, 'Password must be at least 8 characters long');
+      return;
+    }
+
+    // Validate confirm password
+    if (_confirmPasswordController.text.isEmpty) {
+      showNativeErrorSnackbar(context, 'Please confirm your password');
+      return;
+    }
+
+    if (_passwordController.text != _confirmPasswordController.text) {
+      showNativeErrorSnackbar(context, 'Passwords do not match');
+      return;
+    }
+
+    // Call reset password API
+    final success = await _authController.resetPassword(
+      password: _passwordController.text,
+      context: context,
+    );
+
+    if (success) {
+      widget.onNext();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,10 +123,10 @@ class _CreateNewPasswordPopupState extends State<CreateNewPasswordPopup> {
             ),
           ),
           const SizedBox(height: 32),
-          GradientButton(
-            text: 'Next',
-            onPressed: widget.onNext,
-          ),
+          Obx(() => GradientButton(
+            text: _authController.isLoading.value ? 'Updating...' : 'Reset Password',
+            onPressed: _authController.isLoading.value ? null : _onNext,
+          )),
         ],
       ),
     );

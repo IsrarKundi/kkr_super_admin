@@ -1,4 +1,9 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:khaabd_web/controller/getx_controllers/auth_controller.dart';
+import 'package:khaabd_web/models/utils/snackbars.dart';
 import 'package:khaabd_web/utils/colors.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/gradient_button.dart';
@@ -16,7 +21,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
+  AuthController authController = Get.put(AuthController());
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
 
@@ -44,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _showResetPassword = false;
       _showEnterCode = true;
-      _resetEmail = _emailController.text;
+      _resetEmail = authController.userEmail.value;
     });
   }
 
@@ -57,14 +63,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _onCreatePasswordNext() {
     _closeAllPopups();
-    // Handle password reset completion
+    // Show success message
+    showNativeSuccessSnackbar(context, 'Password reset successfully! You can now login with your new password.');
   }
 
   void _onLogin() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const DashboardScreen()),
-    );
+    if(_usernameController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
+      authController.login(
+        username: _usernameController.text,
+        password: _passwordController.text,
+        context: context
+      );
+    }else{
+      log("Please enter both username and password");
+      showNativeErrorSnackbar(context, 'Please enter both username and password');
+    }
   }
 
   @override
@@ -151,8 +164,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 40),
                         AuthTextField(
-                          controller: _emailController,
-                          hintText: 'Email',
+                          controller: _usernameController,
+                          hintText: 'Username',
                           prefixIcon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                         ),
@@ -226,7 +239,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
