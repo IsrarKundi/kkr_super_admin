@@ -2,15 +2,17 @@ import 'package:flutter/material.dart';
 
 class OutlinedGradientButton extends StatelessWidget {
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool enabled;
   final double height;
   final IconData? icon;
+  final double? borderRadius;
 
   const OutlinedGradientButton({
     Key? key,
     required this.text,
-    required this.onPressed,
+     this.onPressed,
+    this.borderRadius,
     this.enabled = true,
     this.height = 56,
     this.icon,
@@ -26,7 +28,7 @@ class OutlinedGradientButton extends StatelessWidget {
           color: Colors.black,
           width: 1.5,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(borderRadius ?? 16),
       ),
       child: ElevatedButton(
         onPressed: enabled ? onPressed : null,
@@ -34,7 +36,7 @@ class OutlinedGradientButton extends StatelessWidget {
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(borderRadius ?? 16),
           ),
           elevation: 0,
         ),

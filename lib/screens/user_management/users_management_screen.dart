@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:get/get.dart';
 import 'package:khaabd_web/screens/widgets/dashboard_header.dart';
 import 'package:khaabd_web/screens/user_management/add_new_user.dart';
+import 'package:khaabd_web/screens/user_management/delete_user_modal.dart';
 import 'package:khaabd_web/utils/colors.dart';
 import 'package:khaabd_web/widgets/gradient_button.dart';
+import 'package:khaabd_web/controller/getx_controllers/user_controller.dart';
+import 'package:khaabd_web/models/models/get_users_model.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({Key? key}) : super(key: key);
@@ -12,61 +17,82 @@ class UserManagementScreen extends StatefulWidget {
 }
 
 class _UserManagementScreenState extends State<UserManagementScreen> {
+  final UserController userController = Get.put(UserController());
   int _tab = 0;
   bool _showDetails = false;
   bool _showAddUser = false;
-  Map<String, String>? _selectedUser;
+  bool _showEditUser = false;
+  bool _showDeleteUser = false;
+  User? _selectedUser;
+  User? _userToEdit;
+  User? _userToDelete;
 
-  // Generate mock data
-  final List<Map<String, String>> _activeUsers = List.generate(15, (i) => {
-    'id': '456',
-    'name': ['Mohsin Zulfiqar', 'Ahmad Ali', 'Sara Ahmed', 'Hassan Khan', 'Fatima Sheikh', 'Ali Raza', 'Zara Malik', 'Omar Farooq', 'Ayesha Tariq', 'Bilal Ahmed', 'Mariam Hussain', 'Faisal Iqbal', 'Nadia Saleem', 'Usman Ghani', 'Rabia Nawaz'][i],
-    'role': ['Admin', 'Manager', 'Staff', 'Viewer', 'Editor'][i % 5],
-    'email': 'user${i + 1}@example.com',
-    'lastActive': ['5m','5s','36s','3w','1y','59m','1h','12m','3h','21h','18h','2w','5d','12y','1d'][i],
-    'phone': '0300-1234567',
-    'status': 'Active',
-  });
+  List<TableColumn> get _columns => [
+    TableColumn('User Name', flex: 3),
+    TableColumn('Role', flex: 2),
+    TableColumn('Last Active', flex: 2),
+    TableColumn('Action', flex: 1),
+  ];
 
-  final List<Map<String, String>> _inactiveUsers = List.generate(8, (i) => {
-    'id': '789',
-    'name': 'Inactive User ${i + 1}',
-    'email': 'inactive${i + 1}@example.com',
-    'lastActive': ['30d','45d','60d','90d','120d','180d','1y','2y'][i],
-    'phone': '0300-9876543',
-    'status': 'Inactive',
-  });
+  void _handleAddUser(String name, String role, String password) async {
+    await userController.addNewUser(
+      username: name,
+      role: role.toLowerCase(),
+      password: password,
+      context: context,
+    );
+    // Close the modal after successful API call
+    setState(() => _showAddUser = false);
+  }
 
-  List<TableColumn> get _columns => _tab == 0 
-    ? [
-        TableColumn('User Name', flex: 3),
-        TableColumn('Role', flex: 2),
-        TableColumn('Last Active', flex: 2),
-        TableColumn('Action', flex: 1),
-      ]
-    : [
-        TableColumn('User ID', flex: 2),
-        TableColumn('Name', flex: 3),
-        TableColumn('Email', flex: 4),
-        TableColumn('Phone', flex: 2),
-        TableColumn('', flex: 1),
-      ];
+  void _handleEditUser(String name, String role, String password) async {
+    if (_userToEdit != null) {
+      await userController.updateUser(
+        userId: _userToEdit!.id,
+        username: name,
+        role: role.toLowerCase(),
+        password: password,
+        context: context,
+      );
+      // Close the modal after successful API call
+      setState(() {
+        _showEditUser = false;
+        _userToEdit = null;
+      });
+    }
+  }
 
-  List<String> _getRowData(Map<String, String> user) => _tab == 0
-    ? [user['name']!, user['role']!, user['lastActive']!, '']
-    : [user['id']!, user['name']!, user['email']!, user['phone']!, ''];
+  void _handleDeleteUser() async {
+    if (_userToDelete != null) {
+      await userController.deleteUser(
+        userId: _userToDelete!.id,
+        context: context,
+      );
+      // Close the modal after successful API call
+      setState(() {
+        _showDeleteUser = false;
+        _userToDelete = null;
+      });
+    }
+  }
 
-  void _handleAddUser(String name, String role, String password) {
-    // Add your logic here to save the new user
-    print('Adding user: $name, Role: $role, Password: $password');
-    // You can add the user to your list or send to API
+  String _formatLastActive(DateTime? lastActive) {
+    if (lastActive == null) return 'Never';
+    
+    final now = DateTime.now();
+    final difference = now.difference(lastActive);
+    
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m';
+    if (difference.inHours < 24) return '${difference.inHours}h';
+    if (difference.inDays < 30) return '${difference.inDays}d';
+    if (difference.inDays < 365) return '${(difference.inDays / 30).floor()}mo';
+    return '${(difference.inDays / 365).floor()}y';
   }
 
   @override
   Widget build(BuildContext context) {
-    final users = _tab == 0 ? _activeUsers : _inactiveUsers;
-
-    return Stack(
+    return Obx(() => Stack(
       children: [
         Container(
           color: greyScaffoldBackgroundColor,
@@ -77,23 +103,44 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               const SizedBox(height: 22),
               _buildHeader(),
               const SizedBox(height: 16),
-              Expanded(child: _buildTable(users)),
+              Expanded(child: _buildTable()),
             ],
           ),
         ),
         if (_showDetails && _selectedUser != null)
           _UserDetailsModal(
-            data: _selectedUser!,
+            user: _selectedUser!,
             onClose: () => setState(() => _showDetails = false),
-            isActive: _tab == 0,
           ),
         if (_showAddUser)
           AddUserModal(
             onClose: () => setState(() => _showAddUser = false),
             onSave: _handleAddUser,
           ),
+        if (_showEditUser && _userToEdit != null)
+          AddUserModal(
+            onClose: () => setState(() {
+              _showEditUser = false;
+              _userToEdit = null;
+            }),
+            onSave: _handleEditUser,
+            isEditMode: true,
+            userId: _userToEdit!.id,
+            initialName: _userToEdit!.username,
+            initialRole: _userToEdit!.role,
+            initialPassword: "",
+          ),
+        if (_showDeleteUser && _userToDelete != null)
+          DeleteUserModal(
+            user: _userToDelete!,
+            onClose: () => setState(() {
+              _showDeleteUser = false;
+              _userToDelete = null;
+            }),
+            onConfirm: _handleDeleteUser,
+          ),
       ],
-    );
+    ));
   }
 
   Widget _buildHeader() {
@@ -117,7 +164,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     );
   }
 
-  Widget _buildTable(List<Map<String, String>> users) {
+  Widget _buildTable() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 32),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
@@ -125,12 +172,25 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         children: [
           _buildTableHeader(),
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: users.map((user) => _buildTableRow(user)).toList(),
-              ),
-            ),
+            child: userController.isLoading.value
+                ? const Center(child: CircularProgressIndicator())
+                : userController.users.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No users found',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        child: Column(
+                          children: userController.users.map((user) => _buildTableRow(user)).toList(),
+                        ),
+                      ),
           ),
+          if (userController.users.isNotEmpty) _buildPagination(),
         ],
       ),
     );
@@ -158,58 +218,127 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     );
   }
 
-  Widget _buildTableRow(Map<String, String> user) {
-    final rowData = _getRowData(user);
+  Widget _buildTableRow(User user) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        children: List.generate(_columns.length, (i) => 
+        children: [
           Expanded(
-            flex: _columns[i].flex,
-            child: i == _columns.length - 1 
-              ? _buildActionButtons()
-              : Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(rowData[i], style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w500, fontSize: 14), overflow: TextOverflow.ellipsis),
-                ),
+            flex: 3,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                user.username,
+                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w500, fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ),
-        ),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                user.role.toUpperCase(),
+                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w500, fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                _formatLastActive(user.lastActive),
+                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w500, fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: _buildActionButtons(user),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildActionButtons(User user) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-IconButton(
-  icon: const Icon(Icons.edit_outlined, color: Color(0xFFc89849), size: 20),
-  onPressed: () {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AddUserModal(
-          onClose: () => Navigator.pop(context),
-          onSave: (name, role, password) {
-            // Handle update logic here
-            // You can update your user list or call an API
-            print('Updated user: $name, $role, $password');
-            Navigator.pop(context);
+        // IconButton(
+        //   icon: const Icon(Icons.visibility_outlined, color: Color(0xFFc89849), size: 20),
+        //   onPressed: () {
+        //     setState(() {
+        //       _selectedUser = user;
+        //       _showDetails = true;
+        //     });
+        //   },
+        //   tooltip: 'View Details',
+        // ),
+        IconButton(
+          icon: SvgPicture.asset('assets/svgs/edit_icon.svg', width: 20, height: 20),
+          onPressed: () {
+            setState(() {
+              _userToEdit = user;
+              _showEditUser = true;
+            });
           },
-          isEditMode: true,
-          initialName: "John Doe", // Replace with actual user data
-          initialRole: "Admin",    // Replace with actual user data
-          initialPassword: "existing_password", // Replace with actual user data
-        );
-      },
-    );
-  },
-  tooltip: 'Edit',
-),
-        IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20), onPressed: () {}, tooltip: 'Delete'),
-        SizedBox(width: 56,)
+          tooltip: 'Edit',
+        ),
+        IconButton(
+          icon: SvgPicture.asset('assets/svgs/delete_icon.svg', width: 20, height: 20),
+          onPressed: () {
+            setState(() {
+              _userToDelete = user;
+              _showDeleteUser = true;
+            });
+          },
+          tooltip: 'Delete',
+        ),
+        const SizedBox(width: 16),
       ],
+    );
+  }
+
+  Widget _buildPagination() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Colors.grey, width: 0.5)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '',
+            style: const TextStyle(color: Colors.grey, fontSize: 14),
+          ),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: userController.hasPrev.value
+                    ? () => userController.loadPreviousPage()
+                    : null,
+              ),
+              Text(
+                'Page ${userController.currentPage.value} of ${userController.totalPages.value}',
+                style: const TextStyle(fontSize: 14),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: userController.hasNext.value
+                    ? () => userController.loadNextPage()
+                    : null,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -221,11 +350,36 @@ class TableColumn {
 }
 
 class _UserDetailsModal extends StatelessWidget {
-  final Map<String, String> data;
+  final User user;
   final VoidCallback onClose;
-  final bool isActive;
 
-  const _UserDetailsModal({Key? key, required this.data, required this.onClose, required this.isActive}) : super(key: key);
+  const _UserDetailsModal({Key? key, required this.user, required this.onClose}) : super(key: key);
+
+  String _formatLastActive(DateTime? lastActive) {
+    if (lastActive == null) return 'Never';
+    
+    final now = DateTime.now();
+    final difference = now.difference(lastActive);
+    
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m';
+    if (difference.inHours < 24) return '${difference.inHours}h';
+    if (difference.inDays < 30) return '${difference.inDays}d';
+    if (difference.inDays < 365) return '${(difference.inDays / 30).floor()}mo';
+    return '${(difference.inDays / 365).floor()}y';
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day} ${_getMonthName(date.month)} ${date.year}';
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month - 1];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -256,23 +410,26 @@ class _UserDetailsModal extends StatelessWidget {
                   ),
                   const SizedBox(height: 18),
                   ...[
-                    ('User Name', data['name'] ?? ''),
-                    ('Email Address', data['email'] ?? ''),
-                    ('Phone Number', data['phone'] ?? '0300-1234567'),
-                    ('Status', data['status'] ?? 'Active'),
-                    ('Last Active', data['lastActive'] ?? '5m'),
-                    ('Join Date', '15 Mar 2023'),
+                    ('User ID', user.id),
+                    ('User Name', user.username),
+                    ('Role', user.role.toUpperCase()),
+                    ('Status', 'Active'),
+                    ('Last Active', _formatLastActive(user.lastActive)),
+                    ('Join Date', _formatDate(user.createdAt)),
                   ].map((item) => _DetailRow(item.$1, item.$2)),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      // Handle block/activate user logic here
+                      print('Toggle user status: ${user.username}');
+                    },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isActive ? Colors.red : const Color(0xFFc89849),
+                      backgroundColor: const Color(0xFFc89849),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: Text(isActive ? 'Block User' : 'Activate User', 
-                                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+                    child: const Text('Block User', 
+                                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
