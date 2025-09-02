@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:khaabd_web/models/models/users_models/get_users_model.dart';
 import '../api_services/user_apis.dart';
 import '../../models/utils/snackbars.dart';
-import '../../models/models/get_users_model.dart';
 
 class UserController extends GetxController {
   // Observable variables

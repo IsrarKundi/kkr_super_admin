@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:khaabd_web/models/models/users_models/get_users_model.dart';
 import 'package:khaabd_web/widgets/gradient_button.dart';
 import 'package:khaabd_web/widgets/outlined_button.dart';
 import 'package:khaabd_web/controller/getx_controllers/user_controller.dart';
-import 'package:khaabd_web/models/models/get_users_model.dart';
 
 class DeleteUserModal extends StatelessWidget {
   final User user;
