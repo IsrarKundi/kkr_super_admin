@@ -6,10 +6,12 @@ import 'package:khaabd_web/widgets/gradient_button.dart';
 
 class SupplierLedgerTab extends StatelessWidget {
   final StoreController storeController;
+  final Function(Ledger)? onMakePayment;
 
   const SupplierLedgerTab({
     Key? key,
     required this.storeController,
+    this.onMakePayment,
   }) : super(key: key);
 
   String _formatCurrency(int amount) {
@@ -124,14 +126,14 @@ class SupplierLedgerTab extends StatelessWidget {
           ),
           Expanded(
             flex: 2,
-            child: _buildActionButton(),
+            child: _buildActionButton(item),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActionButton() {
+  Widget _buildActionButton(Ledger item) {
     return Padding(
       padding: const EdgeInsets.only(right: 110),
       child: SizedBox(
@@ -145,7 +147,9 @@ class SupplierLedgerTab extends StatelessWidget {
           ),
           text: "Make Payment",
           onPressed: () {
-            // Handle make payment logic
+            if (onMakePayment != null) {
+              onMakePayment!(item);
+            }
           },
           height: 32,
         ),

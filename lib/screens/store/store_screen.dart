@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:khaabd_web/screens/store/add_purchase.dart';
+import 'package:khaabd_web/screens/store/make_payment_popup.dart';
+import 'package:khaabd_web/screens/store/delete_purchase_modal.dart';
+import 'package:khaabd_web/screens/store/delete_inventory_item_modal.dart';
 import 'package:khaabd_web/screens/widgets/dashboard_header.dart';
 import 'package:khaabd_web/screens/store/transfer_to_kitchen.dart';
 import 'package:khaabd_web/screens/store/tabs/current_inventory_tab.dart';
@@ -10,6 +13,8 @@ import 'package:khaabd_web/utils/colors.dart';
 import 'package:khaabd_web/widgets/gradient_button.dart';
 import 'package:khaabd_web/controller/getx_controllers/store_controller.dart';
 import 'package:khaabd_web/models/models/store_models/get_inventory_model.dart';
+import 'package:khaabd_web/models/models/store_models/get_supplier_ledger_model.dart';
+import 'package:khaabd_web/models/models/store_models/get_purchase_history_model.dart';
 
 class StoreScreen extends StatefulWidget {
   final void Function(Map<String, dynamic>)? onShowDetail;
@@ -24,7 +29,13 @@ class _StoreScreenState extends State<StoreScreen> {
   int _tab = 0;
   bool _showTransferModal = false;
   bool _showPurchaseModal = false;
+  bool _showMakePaymentModal = false;
+  bool _showDeletePurchaseModal = false;
+  bool _showDeleteInventoryItemModal = false;
   CurrentInventory? _editingInventoryItem;
+  CurrentInventory? _inventoryItemToDelete;
+  Ledger? _selectedSupplier;
+  PurchaseHistory? _purchaseToDelete;
 
   // Transfer modal methods
   void _showTransferToKitchenModal() {
@@ -39,9 +50,24 @@ class _StoreScreenState extends State<StoreScreen> {
     });
   }
 
-  void _handleTransfer(String item, String quantity, String section) {
-    print('Transferring $quantity of $item to $section section');
-    // Add your transfer logic here
+  Future<void> _handleTransfer(String itemId, String quantity, String section) async {
+    try {
+      // Map section names to API format
+      String apiSection = section.toLowerCase().replaceAll(' ', '-');
+      
+      final success = await storeController.transferToKitchen(
+        itemId: itemId,
+        quantity: int.parse(quantity),
+        kitchenSection: apiSection,
+        context: context
+      );
+      
+      if (success) {
+        _closeTransferModal();
+      }
+    } catch (e) {
+      print('Error transferring item: $e');
+    }
   }
 
   // Purchase modal methods
@@ -66,42 +92,136 @@ class _StoreScreenState extends State<StoreScreen> {
     });
   }
 
-  void _handlePurchaseSave(String itemName, String supplierName, String quantity, String measuring, String category, String pricePerUnit, String paymentMethod) {
+  Future<void> _handlePurchaseSave(String itemName, String supplierName, String quantity, String measuring, String category, String pricePerUnit, String paymentMethod) async {
     if (_editingInventoryItem != null) {
       // Edit mode - update existing item
       print('Updating purchase: $itemName, $supplierName, $quantity $measuring, $category, $pricePerUnit, $paymentMethod');
+      // TODO: Implement edit functionality when API is available
     } else {
       // Add mode - create new item
-      print('Adding new purchase: $itemName, $supplierName, $quantity $measuring, $category, $pricePerUnit, $paymentMethod');
+      try {
+        final success = await storeController.addPurchase(
+          itemName: itemName,
+          supplierName: supplierName,
+          category: category,
+          measuringUnit: measuring,
+          pricePerUnit: double.parse(pricePerUnit),
+          quantity: int.parse(quantity),
+          paymentMethod: paymentMethod,
+          context: context
+        );
+        
+        if (success) {
+          _closePurchaseModal();
+        }
+      } catch (e) {
+        print('Error adding purchase: $e');
+      }
     }
-    // You can add your save logic here (API calls, local storage, etc.)
+  }
+
+  // Delete inventory item modal methods
+  void _showDeleteInventoryItemModalMethod(CurrentInventory item) {
+    setState(() {
+      _inventoryItemToDelete = item;
+      _showDeleteInventoryItemModal = true;
+    });
+  }
+
+  void _closeDeleteInventoryItemModal() {
+    setState(() {
+      _showDeleteInventoryItemModal = false;
+      _inventoryItemToDelete = null;
+    });
   }
 
   void _handleDeleteInventoryItem(CurrentInventory item) {
-    // Show confirmation dialog
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete Item'),
-          content: Text('Are you sure you want to delete ${item.name}?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                print('Deleted item: ${item.name}');
-                // Add delete API call here
-              },
-              child: const Text('Delete', style: TextStyle(color: Colors.red)),
-            ),
-          ],
+    _showDeleteInventoryItemModalMethod(item);
+  }
+
+  Future<void> _confirmDeleteInventoryItem() async {
+    if (_inventoryItemToDelete != null) {
+      try {
+        final success = await storeController.deleteInventoryItem(
+          itemId: _inventoryItemToDelete!.itemId,
+          context: context
         );
-      },
-    );
+        
+        if (success) {
+          _closeDeleteInventoryItemModal();
+        }
+      } catch (e) {
+        print('Error deleting inventory item: $e');
+      }
+    }
+  }
+
+  // Make payment modal methods
+  void _showMakePaymentModalMethod(Ledger supplier) {
+    setState(() {
+      _selectedSupplier = supplier;
+      _showMakePaymentModal = true;
+    });
+  }
+
+  void _closeMakePaymentModal() {
+    setState(() {
+      _showMakePaymentModal = false;
+      _selectedSupplier = null;
+    });
+  }
+
+  Future<void> _handleMakePayment(String supplierId, double amount) async {
+    try {
+      final success = await storeController.makePayment(
+        supplierId: supplierId,
+        amount: amount,
+        context: context
+      );
+      
+      if (success) {
+        _closeMakePaymentModal();
+      }
+    } catch (e) {
+      print('Error making payment: $e');
+    }
+  }
+
+  // Delete purchase modal methods
+  void _showDeletePurchaseModalMethod(PurchaseHistory purchase) {
+    setState(() {
+      _purchaseToDelete = purchase;
+      _showDeletePurchaseModal = true;
+    });
+  }
+
+  void _closeDeletePurchaseModal() {
+    setState(() {
+      _showDeletePurchaseModal = false;
+      _purchaseToDelete = null;
+    });
+  }
+
+  // Delete purchase methods
+  void _handleDeletePurchase(PurchaseHistory purchase) {
+    _showDeletePurchaseModalMethod(purchase);
+  }
+
+  Future<void> _confirmDeletePurchase() async {
+    if (_purchaseToDelete != null) {
+      try {
+        final success = await storeController.cancelPurchase(
+          purchaseId: _purchaseToDelete!.purchaseId,
+          context: context
+        );
+        
+        if (success) {
+          _closeDeletePurchaseModal();
+        }
+      } catch (e) {
+        print('Error cancelling purchase: $e');
+      }
+    }
   }
 
   @override
@@ -186,6 +306,28 @@ class _StoreScreenState extends State<StoreScreen> {
             initialPricePerUnit: _editingInventoryItem?.pricePerUnit.toString(),
             initialPaymentMethod: '',
           ),
+        // Make Payment Modal
+        if (_showMakePaymentModal && _selectedSupplier != null)
+          MakePaymentModal(
+            onClose: _closeMakePaymentModal,
+            onSave: _handleMakePayment,
+            supplierName: _selectedSupplier!.supplierName,
+            supplierId: _selectedSupplier!.supplierId,
+          ),
+        // Delete Purchase Modal
+        if (_showDeletePurchaseModal && _purchaseToDelete != null)
+          DeletePurchaseModal(
+            purchase: _purchaseToDelete!,
+            onClose: _closeDeletePurchaseModal,
+            onConfirm: _confirmDeletePurchase,
+          ),
+        // Delete Inventory Item Modal
+        if (_showDeleteInventoryItemModal && _inventoryItemToDelete != null)
+          DeleteInventoryItemModal(
+            item: _inventoryItemToDelete!,
+            onClose: _closeDeleteInventoryItemModal,
+            onConfirm: _confirmDeleteInventoryItem,
+          ),
       ],
     );
   }
@@ -232,10 +374,12 @@ class _StoreScreenState extends State<StoreScreen> {
       case 1:
         return PurchaseHistoryTab(
           storeController: storeController,
+          onDeletePurchase: _handleDeletePurchase,
         );
       case 2:
         return SupplierLedgerTab(
           storeController: storeController,
+          onMakePayment: _showMakePaymentModalMethod,
         );
       default:
         return Container();

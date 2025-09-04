@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:khaabd_web/models/utils/snackbars.dart';
 import 'package:khaabd_web/widgets/custom_textfield.dart';
 import 'package:khaabd_web/widgets/gradient_button.dart';
 import 'package:khaabd_web/widgets/outlined_button.dart';
+import 'package:khaabd_web/controller/getx_controllers/store_controller.dart';
 
 class AddPurchaseModal extends StatefulWidget {
   final VoidCallback onClose;
@@ -49,7 +52,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
   bool _showCategoryDropdown = false;
   bool _showPaymentMethodDropdown = false;
 
-  final List<String> _measuringUnits = ['kg', 'g', 'L', 'ml', 'pcs', 'dozen', 'pack'];
+  final List<String> _measuringUnits = ['kg', 'g', 'L', 'ml', 'pcs', 'dozen', 'pack', 'box'];
   final List<String> _categories = ['Kitchen Inventory', 'Packing Inventory'];
   final List<String> _paymentMethods = ['Cash', 'Bank', 'Debt'];
 
@@ -94,7 +97,9 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
         _pricePerUnitController.text,
         _selectedPaymentMethod,
       );
-      widget.onClose();
+      // Don't close modal here - let the controller handle success/failure
+    } else{
+      showNativeErrorSnackbar(context, 'Please fill all fields with valid data');
     }
   }
 
@@ -289,11 +294,18 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: GradientButton(
-                            text: widget.isEditMode ? 'Update' : 'Save',
-                            onPressed: _handleSave,
-                            height: 50,
-                          ),
+                          child: Obx(() {
+                            final controller = Get.find<StoreController>();
+                            return GradientButton(
+                              text: controller.isAddingPurchase.value 
+                                  ? 'Saving...' 
+                                  : (widget.isEditMode ? 'Update' : 'Save'),
+                              onPressed: controller.isAddingPurchase.value 
+                                  ? null 
+                                  : _handleSave,
+                              height: 50,
+                            );
+                          }),
                         ),
                       ],
                     ),
@@ -310,7 +322,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               _selectedMeasuring = unit;
               _showMeasuringDropdown = false;
             });
-          }, 24 + 26 + 24 + 16 + 8 + 50 + 20 + 16 + 8 + 50 + 20 + 16 + 8),
+          }, 'measuring'),
         // Category Dropdown overlay
         if (_showCategoryDropdown)
           _buildDropdownOverlay(_categories, (category) {
@@ -318,7 +330,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               _selectedCategory = category;
               _showCategoryDropdown = false;
             });
-          }, 24 + 26 + 24 + 16 + 8 + 50 + 20 + 16 + 8 + 50 + 20 + 70 + 20 + 16 + 8),
+          }, 'category'),
         // Payment Method Dropdown overlay
         if (_showPaymentMethodDropdown)
           _buildDropdownOverlay(_paymentMethods, (method) {
@@ -326,7 +338,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               _selectedPaymentMethod = method;
               _showPaymentMethodDropdown = false;
             });
-          }, 24 + 26 + 24 + 16 + 8 + 50 + 20 + 16 + 8 + 50 + 20 + 70 + 20 + 16 + 8 + 50 + 20 + 16 + 8 + 50 + 20 + 16 + 8),
+          }, 'payment'),
       ],
     );
   }
@@ -436,7 +448,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
     );
   }
 
-  Widget _buildDropdownOverlay(List<String> items, Function(String) onSelect, double topOffset) {
+  Widget _buildDropdownOverlay(List<String> items, Function(String) onSelect, String dropdownType) {
     return Positioned.fill(
       child: GestureDetector(
         onTap: () => setState(() {
@@ -454,42 +466,124 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(height: topOffset),
-                  Material(
-                    elevation: 8,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!, width: 1),
-                      ),
-                      child: Column(
-                        children: items.map((item) => 
-                          InkWell(
-                            onTap: () => onSelect(item),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                border: item != items.last 
-                                  ? Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1))
-                                  : null,
-                              ),
-                              child: Text(
-                                item,
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
+                  // Dynamic spacing based on dropdown type
+                  if (dropdownType == 'measuring') ...[
+                    const SizedBox(height: 24), // Header
+                    const SizedBox(height: 26), // Title
+                    const SizedBox(height: 24), // Spacing
+                    const SizedBox(height: 16), // Item Name label
+                    const SizedBox(height: 8),  // Spacing
+                    const SizedBox(height: 50), // Item Name field
+                    const SizedBox(height: 20), // Spacing
+                    const SizedBox(height: 16), // Supplier Name label
+                    const SizedBox(height: 8),  // Spacing
+                    const SizedBox(height: 50), // Supplier Name field
+                    const SizedBox(height: 20), // Spacing
+                    // Half of quantity row (up to measuring dropdown)
+                  ] else if (dropdownType == 'category') ...[
+                    const SizedBox(height: 24), // Header
+                    const SizedBox(height: 26), // Title
+                    const SizedBox(height: 24), // Spacing
+                    const SizedBox(height: 16), // Item Name label
+                    const SizedBox(height: 8),  // Spacing
+                    const SizedBox(height: 50), // Item Name field
+                    const SizedBox(height: 20), // Spacing
+                    const SizedBox(height: 16), // Supplier Name label
+                    const SizedBox(height: 8),  // Spacing
+                    const SizedBox(height: 50), // Supplier Name field
+                    const SizedBox(height: 20), // Spacing
+                    const SizedBox(height: 70), // Quantity row
+                     // Spacing
+                  ] else if (dropdownType == 'payment') ...[
+                    // For payment dropdown, we position it above the field
+                    const SizedBox(height: 430), // Spacing
+                    // Position dropdown above the payment field
+                    Material(
+                      elevation: 8,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[300]!, width: 1),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: items.map((item) => 
+                              InkWell(
+                                onTap: () => onSelect(item),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    border: item != items.last 
+                                      ? Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1))
+                                      : null,
+                                  ),
+                                  child: Text(
+                                    item,
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ).toList(),
                           ),
-                        ).toList(),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 50), // Payment Method field (below dropdown)
+                    const Spacer(), // Push everything up
+                  ],
+                  
+                  // For non-payment dropdowns, show dropdown below the spacing
+                  if (dropdownType != 'payment')
+                    Material(
+                      elevation: 8,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[300]!, width: 1),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: items.map((item) => 
+                              InkWell(
+                                onTap: () => onSelect(item),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    border: item != items.last 
+                                      ? Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1))
+                                      : null,
+                                  ),
+                                  child: Text(
+                                    item,
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ).toList(),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

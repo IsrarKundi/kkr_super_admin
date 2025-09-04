@@ -35,6 +35,21 @@ class StoreController extends GetxController {
   var supplierHasPrev = false.obs;
   var supplierTotal = 0.obs;
 
+  // Observable variable for add purchase loading
+  var isAddingPurchase = false.obs;
+
+  // Observable variable for make payment loading
+  var isMakingPayment = false.obs;
+
+  // Observable variable for cancel purchase loading
+  var isCancellingPurchase = false.obs;
+
+  // Observable variable for delete inventory item loading
+  var isDeletingInventoryItem = false.obs;
+
+  // Observable variable for transfer to kitchen loading
+  var isTransferringToKitchen = false.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -47,8 +62,8 @@ class StoreController extends GetxController {
   /// Get current inventory
   Future<void> getCurrentInventory({
     int page = 1,
-    int limit = 9,
-    String section = 'kitchen',
+    int limit = 13,
+    String section = 'all',
     bool showLoading = true,
   }) async {
     try {
@@ -89,7 +104,7 @@ class StoreController extends GetxController {
   /// Get purchase history
   Future<void> getPurchaseHistory({
     int page = 1,
-    int limit = 9,
+    int limit = 13,
     bool showLoading = true,
   }) async {
     try {
@@ -234,6 +249,215 @@ class StoreController extends GetxController {
 
   Future<void> refreshSupplierLedger() async {
     await getSupplierLedger(page: 1);
+  }
+
+  /// Add purchase
+  Future<bool> addPurchase({
+    required String itemName,
+    required String supplierName,
+    required String category,
+    required String measuringUnit,
+    required double pricePerUnit,
+    required int quantity,
+    required String paymentMethod,
+    required BuildContext context
+  }) async {
+    try {
+      isAddingPurchase.value = true;
+      
+
+      // Map category from UI to API format
+      String apiCategory = category == 'Kitchen Inventory' ? 'kitchen' : 'packing';
+
+      final result = await StoreService.addPurchase(
+        itemName: itemName,
+        supplierName: supplierName,
+        category: apiCategory,
+        measuringUnit: measuringUnit,
+        pricePerUnit: pricePerUnit,
+        quantity: quantity,
+        paymentMethod: paymentMethod.toLowerCase(),
+      );
+
+      if (result['success']) {
+        // Show success message
+        showNativeSuccessSnackbar(context!, 'Inventory added successfully');
+        
+        // Refresh inventory and purchase history to reflect the new item
+        await refreshInventory();
+        await refreshPurchaseHistory();
+        
+        print('Purchase added successfully: ${result['data']}');
+        return true;
+      } else {
+        // Show error message
+        String errorMessage = result['data']['message'] ?? 'Failed to add purchase';
+        showNativeErrorSnackbar(context!, errorMessage);
+        print('Failed to add purchase: $errorMessage');
+        return false;
+      }
+    } catch (e) {
+      showNativeErrorSnackbar(context!, 'Error adding purchase: $e');
+      print('Add purchase error: $e');
+      return false;
+    } finally {
+      isAddingPurchase.value = false;
+    }
+  }
+
+  /// Make payment to supplier
+  Future<bool> makePayment({
+    required String supplierId,
+    required double amount,
+    required BuildContext context
+  }) async {
+    try {
+      isMakingPayment.value = true;
+
+      final result = await StoreService.makePayment(
+        supplierId: supplierId,
+        amount: amount,
+      );
+
+      if (result['success']) {
+        // Show success message
+        showNativeSuccessSnackbar(context!, 'Payment made successfully');
+        
+        // Refresh supplier ledger to reflect the updated outstanding amount
+        await refreshSupplierLedger();
+        
+        print('Payment made successfully: ${result['data']}');
+        return true;
+      } else {
+        // Show error message
+        String errorMessage = result['data']['message'] ?? 'Failed to make payment';
+        showNativeErrorSnackbar(context!, errorMessage);
+        print('Failed to make payment: $errorMessage');
+        return false;
+      }
+    } catch (e) {
+      showNativeErrorSnackbar(context!, 'Error making payment: $e');
+      print('Make payment error: $e');
+      return false;
+    } finally {
+      isMakingPayment.value = false;
+    }
+  }
+
+  /// Cancel purchase
+  Future<bool> cancelPurchase({
+    required String purchaseId,
+    required BuildContext context
+  }) async {
+    try {
+      isCancellingPurchase.value = true;
+
+      final result = await StoreService.cancelPurchase(
+        purchaseId: purchaseId,
+      );
+
+      if (result['success']) {
+        // Show success message
+        showNativeSuccessSnackbar(context!, 'Purchase cancelled successfully');
+        
+        // Refresh inventory and purchase history to reflect the changes
+        await refreshInventory();
+        await refreshPurchaseHistory();
+        
+        print('Purchase cancelled successfully: ${result['data']}');
+        return true;
+      } else {
+        // Show error message
+        String errorMessage = result['data']['message'] ?? 'Failed to cancel purchase';
+        showNativeErrorSnackbar(context!, errorMessage);
+        print('Failed to cancel purchase: $errorMessage');
+        return false;
+      }
+    } catch (e) {
+      showNativeErrorSnackbar(context!, 'Error cancelling purchase: $e');
+      print('Cancel purchase error: $e');
+      return false;
+    } finally {
+      isCancellingPurchase.value = false;
+    }
+  }
+
+  /// Delete inventory item
+  Future<bool> deleteInventoryItem({
+    required String itemId,
+    required BuildContext context
+  }) async {
+    try {
+      isDeletingInventoryItem.value = true;
+
+      final result = await StoreService.deleteInventoryItem(
+        itemId: itemId,
+      );
+
+      if (result['success']) {
+        // Show success message
+        showNativeSuccessSnackbar(context!, 'Item deleted successfully');
+        
+        // Refresh inventory to reflect the changes
+        await refreshInventory();
+        
+        print('Item deleted successfully: ${result['data']}');
+        return true;
+      } else {
+        // Show error message
+        String errorMessage = result['data']['message'] ?? 'Failed to delete item';
+        showNativeErrorSnackbar(context!, errorMessage);
+        print('Failed to delete item: $errorMessage');
+        return false;
+      }
+    } catch (e) {
+      showNativeErrorSnackbar(context!, 'Error deleting item: $e');
+      print('Delete item error: $e');
+      return false;
+    } finally {
+      isDeletingInventoryItem.value = false;
+    }
+  }
+
+  /// Transfer to kitchen
+  Future<bool> transferToKitchen({
+    required String itemId,
+    required int quantity,
+    required String kitchenSection,
+    required BuildContext context
+  }) async {
+    try {
+      isTransferringToKitchen.value = true;
+
+      final result = await StoreService.transferToKitchen(
+        itemId: itemId,
+        quantity: quantity,
+        kitchenSection: kitchenSection,
+      );
+
+      if (result['success']) {
+        // Show success message
+        showNativeSuccessSnackbar(context!, 'Item transferred to kitchen successfully');
+        
+        // Refresh inventory to reflect the changes
+        await refreshInventory();
+        
+        print('Item transferred successfully: ${result['data']}');
+        return true;
+      } else {
+        // Show error message
+        String errorMessage = result['data']['message'] ?? 'Failed to transfer item';
+        showNativeErrorSnackbar(context!, errorMessage);
+        print('Failed to transfer item: $errorMessage');
+        return false;
+      }
+    } catch (e) {
+      showNativeErrorSnackbar(context!, 'Error transferring item: $e');
+      print('Transfer item error: $e');
+      return false;
+    } finally {
+      isTransferringToKitchen.value = false;
+    }
   }
 
   /// Clear all data

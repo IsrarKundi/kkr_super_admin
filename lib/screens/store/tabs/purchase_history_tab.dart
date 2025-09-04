@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:khaabd_web/controller/getx_controllers/store_controller.dart';
 import 'package:khaabd_web/models/models/store_models/get_purchase_history_model.dart';
 
 class PurchaseHistoryTab extends StatelessWidget {
   final StoreController storeController;
+  final Function(PurchaseHistory)? onDeletePurchase;
 
   const PurchaseHistoryTab({
     Key? key,
     required this.storeController,
+    this.onDeletePurchase,
   }) : super(key: key);
 
   String _formatCurrency(int amount) {
@@ -27,6 +30,7 @@ class PurchaseHistoryTab extends StatelessWidget {
     TableColumn('Supplier', flex: 2),
     TableColumn('Payment Method', flex: 2),
     TableColumn('Date', flex: 2),
+    TableColumn('Action', flex: 1),
   ];
 
   @override
@@ -171,6 +175,21 @@ class PurchaseHistoryTab extends StatelessWidget {
                 _formatDate(item.createdAt),
                 style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w500, fontSize: 14),
                 overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: IconButton(
+                icon: SvgPicture.asset("assets/svgs/delete_icon.svg"),
+                onPressed: () {
+                  if (onDeletePurchase != null) {
+                    onDeletePurchase!(item);
+                  }
+                },
+                tooltip: 'Cancel Purchase',
               ),
             ),
           ),
