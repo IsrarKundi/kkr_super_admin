@@ -45,7 +45,7 @@ class _TransferToKitchenModalState extends State<TransferToKitchenModal> {
 
   @override
   Widget build(BuildContext context) {
-    final StoreController storeController = Get.find<StoreController>();
+    final StoreController storeController = Get.put(StoreController());
     
     return Obx(() {
       final bool isLoading = storeController.isTransferringToKitchen.value;
