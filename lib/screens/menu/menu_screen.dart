@@ -76,11 +76,25 @@ void _closeAddMenuItemModal() {
   });
 }
 
-void _handleAddMenuItem(String menuItemName, String foodSection, String sellingPrice, String takeawayPacking, String description, List<Map<String, String>> ingredients) {
-  // TODO: Implement API call to add/update menu item
-  print(_editingItem != null ? 'Updated menu item: $menuItemName' : 'Added menu item: $menuItemName');
-  // For now, just refresh the menu items
-  menuController.refreshMenuItems();
+Future<void> _handleAddMenuItem(String menuItemName, String foodSection, String sellingPrice, String takeawayPacking, String description, List<Map<String, String>> ingredients) async {
+  // Convert ingredients to the required format
+  List<Map<String, dynamic>> apiIngredients = ingredients.map((ingredient) => {
+    'item': ingredient['kitchenItemId'] ?? '', // This should be the ID from the API
+    'quantity': int.tryParse(ingredient['quantity'] ?? '0') ?? 0,
+  }).toList();
+
+  final success = await menuController.addMenuItem(
+    menuItemName: menuItemName,
+    foodSection: foodSection.toLowerCase().replaceAll(' ', '_'), // Convert to API format
+    sellingPrice: int.tryParse(sellingPrice) ?? 0,
+    description: description,
+    takeAwayPacking: takeawayPacking, // This should be the packing ID from API
+    ingredients: apiIngredients,
+  );
+
+  if (success) {
+    _closeAddMenuItemModal();
+  }
 }
   // Edit inventory modal methods
   void _showEditInventoryModalMethod(Map<String, String> item) {

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../api_services/menu_apis.dart';
 import '../../models/utils/snackbars.dart';
 import '../../models/models/kitchen_models/get_menu_items.dart';
+import '../../models/models/kitchen_models/get_items_by_section_model.dart';
 
 class MenuGetxController extends GetxController {
   // Observable variables for menu items
@@ -14,6 +15,13 @@ class MenuGetxController extends GetxController {
   var menuHasNext = false.obs;
   var menuHasPrev = false.obs;
   var menuTotal = 0.obs;
+
+  // Observable variables for items by section
+  var isLoadingItemsBySection = false.obs;
+  var itemsBySection = <IngredientsDatum>[].obs;
+
+  // Observable variable for adding menu item
+  var isAddingMenuItem = false.obs;
 
   @override
   void onInit() {
@@ -95,6 +103,86 @@ class MenuGetxController extends GetxController {
     await getMenuItems(page: 1);
   }
 
+  /// Get items by section
+  Future<void> getItemsBySection({
+    required String kitchenSection,
+    int page = 1,
+    int limit = 50,
+    bool showLoading = true,
+  }) async {
+    try {
+      if (showLoading) {
+        isLoadingItemsBySection.value = true;
+      }
+
+      final result = await MenuService.getItemsBySection(
+        page: page,
+        limit: limit,
+        kitchenSection: kitchenSection,
+      );
+
+      if (result['success']) {
+        final getItemsBySectionModel = GetItemsBySectionModel.fromJson(result['data']);
+        
+        // Update observable variables
+        itemsBySection.value = getItemsBySectionModel.data;
+        
+        print('Items by section loaded successfully: ${itemsBySection.length} items');
+      } else {
+        print('Failed to load items by section: ${result['data']['message'] ?? 'Unknown error'}');
+        showErrorSnackbar(result['data']['message'] ?? 'Failed to load items');
+      }
+    } catch (e) {
+      print('Get items by section error: $e');
+      showErrorSnackbar('Failed to load items: ${e.toString()}');
+    } finally {
+      if (showLoading) {
+        isLoadingItemsBySection.value = false;
+      }
+    }
+  }
+
+  /// Add menu item
+  Future<bool> addMenuItem({
+    required String menuItemName,
+    required String foodSection,
+    required int sellingPrice,
+    required String description,
+    required String takeAwayPacking,
+    required List<Map<String, dynamic>> ingredients,
+  }) async {
+    try {
+      isAddingMenuItem.value = true;
+
+      final result = await MenuService.addMenuItem(
+        menuItemName: menuItemName,
+        foodSection: foodSection,
+        sellingPrice: sellingPrice,
+        description: description,
+        takeAwayPacking: takeAwayPacking,
+        ingredients: ingredients,
+      );
+
+      if (result['success']) {
+        showSuccessSnackbar(result['data']['message'] ?? 'Menu item added successfully');
+        // Refresh menu items to reflect changes
+        await refreshMenuItems();
+        return true;
+      } else {
+        // Show error message from backend
+        final errorMessage = result['data']['message'] ?? 'Failed to add menu item';
+        showErrorSnackbar(errorMessage);
+        return false;
+      }
+    } catch (e) {
+      showErrorSnackbar('Add menu item failed: ${e.toString()}');
+      print('Add menu item error: $e');
+      return false;
+    } finally {
+      isAddingMenuItem.value = false;
+    }
+  }
+
   /// Clear all data
   void clearData() {
     // Clear menu items data
@@ -104,5 +192,8 @@ class MenuGetxController extends GetxController {
     menuHasNext.value = false;
     menuHasPrev.value = false;
     menuTotal.value = 0;
+
+    // Clear items by section data
+    itemsBySection.clear();
   }
 }
