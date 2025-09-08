@@ -25,6 +25,9 @@ class KitchenController extends GetxController {
   var transferHasPrev = false.obs;
   var transferTotal = 0.obs;
 
+  // Observable variable for transfer to store
+  var isTransferringToStore = false.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -160,6 +163,43 @@ class KitchenController extends GetxController {
 
   Future<void> refreshTransferHistory() async {
     await getTransferHistory(page: 1);
+  }
+
+  /// Transfer item to store
+  Future<bool> transferToStore({
+    required String itemId,
+    required String kitchenSection,
+    required int quantity,
+    required BuildContext context
+  }) async {
+    try {
+      isTransferringToStore.value = true;
+
+      final result = await KitchenService.transferToStore(
+        itemId: itemId,
+        kitchenSection: kitchenSection,
+        quantity: quantity,
+      );
+
+      if (result['success']) {
+        showNativeSuccessSnackbar(context, (result['data']['message'] ?? 'Item transferred to store successfully'));
+        // Refresh inventory and transfer history to reflect changes
+        await refreshKitchenInventory();
+        await refreshTransferHistory();
+        return true;
+      } else {
+        // Show error message from backend
+        final errorMessage = result['data']['message'] ?? 'Failed to transfer item to store';
+        showNativeErrorSnackbar(context ,errorMessage);
+        return false;
+      }
+    } catch (e) {
+      showErrorSnackbar('Transfer failed: ${e.toString()}');
+      print('Transfer to store error: $e');
+      return false;
+    } finally {
+      isTransferringToStore.value = false;
+    }
   }
 
   /// Clear all data

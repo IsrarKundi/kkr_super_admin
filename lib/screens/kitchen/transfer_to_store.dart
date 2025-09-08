@@ -1,16 +1,19 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:khaabd_web/widgets/custom_textfield.dart';
 import 'package:khaabd_web/widgets/gradient_button.dart';
 import 'package:khaabd_web/widgets/outlined_button.dart';
+import 'package:khaabd_web/controller/getx_controllers/kitchen_controller.dart';
+import 'package:khaabd_web/models/models/kitchen_models/get_kitchen_inventory_model.dart';
 
 class TransferToStoreModal extends StatefulWidget {
   final VoidCallback onClose;
-  final Function(String item, String quantity, String section) onTransfer;
 
   const TransferToStoreModal({
     Key? key,
     required this.onClose,
-    required this.onTransfer,
   }) : super(key: key);
 
   @override
@@ -19,30 +22,19 @@ class TransferToStoreModal extends StatefulWidget {
 
 class _TransferToStoreModalState extends State<TransferToStoreModal> {
   final TextEditingController _quantityController = TextEditingController();
-  String _selectedItem = 'Choose item to transfer';
+  final KitchenController kitchenController = Get.find<KitchenController>();
+  
+  Inventory? _selectedItem;
   String _selectedSection = 'Select Section';
   bool _showItemDropdown = false;
   bool _showSectionDropdown = false;
 
-  final List<String> _items = [
-    'Rice Basmati',
-    'Chicken Breast',
-    'Tomatoes',
-    'Onions',
-    'Cooking Oil',
-    'Salt',
-    'Black Pepper',
-    'Garlic',
-    'Ginger',
-    'Potatoes',
-    'Carrots',
-    'Bell Peppers',
-    'Yogurt',
-    'Milk',
-    'Eggs'
-  ];
-
-  final List<String> _sections = ['Desi', 'Continental', 'Fast Food'];
+  final List<String> _sections = ['desi', 'continental', 'fast_food'];
+  final Map<String, String> _sectionDisplayNames = {
+    'desi': 'Desi',
+    'continental': 'Continental', 
+    'fast_food': 'Fast Food'
+  };
 
   @override
   void dispose() {
@@ -50,12 +42,54 @@ class _TransferToStoreModalState extends State<TransferToStoreModal> {
     super.dispose();
   }
 
-  void _handleTransfer() {
-    if (_selectedItem != 'Choose item to transfer' && 
+  Future<void> _handleTransfer() async {
+    if (_selectedItem != null && 
         _quantityController.text.isNotEmpty && 
         _selectedSection != 'Select Section') {
-      widget.onTransfer(_selectedItem, _quantityController.text, _selectedSection);
-      widget.onClose();
+      
+      final quantity = int.tryParse(_quantityController.text);
+      if (quantity == null || quantity <= 0) {
+        Get.snackbar(
+          'Invalid Quantity',
+          'Please enter a valid quantity',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      if (quantity > _selectedItem!.currentStock) {
+        Get.snackbar(
+          'Insufficient Stock',
+          'Available stock: ${_selectedItem!.currentStock} ${_selectedItem!.measuringUnit}',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+      log("kitchen section: $_selectedSection");
+      log("item id: ${_selectedItem!.id}");
+      log("quantity: $quantity");
+      final success = await kitchenController.transferToStore(
+        itemId: _selectedItem!.itemId,
+        kitchenSection: _selectedSection,
+        quantity: quantity,
+        context: context
+      );
+
+      if (success) {
+        widget.onClose();
+      }
+    } else {
+      Get.snackbar(
+        'Missing Information',
+        'Please fill all required fields',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     }
   }
 
@@ -146,11 +180,13 @@ class _TransferToStoreModalState extends State<TransferToStoreModal> {
                   const SizedBox(height: 8),
                   CustomTextField(
                     controller: _quantityController,
-                    hintText: 'Enter quantity',
+                    hintText: _selectedItem != null 
+                        ? 'Enter quantity (Available: ${_selectedItem!.currentStock} ${_selectedItem!.measuringUnit})'
+                        : 'Enter quantity',
                     borderRadius: 12.0,
                   ),
                   const SizedBox(height: 20),
-                  // Transfer to Section Field
+                  // Transfer from Section Field
                   const Text(
                     'Transfer from Section',
                     style: TextStyle(
@@ -162,24 +198,30 @@ class _TransferToStoreModalState extends State<TransferToStoreModal> {
                   _buildSectionDropdown(),
                   const SizedBox(height: 32),
                   // Action Buttons
-                  Row(
+                  Obx(() => Row(
                     children: [
                       Expanded(
                         child: OutlinedGradientButton(
                           text: "Cancel",
-                          onPressed: widget.onClose,
+                          onPressed: kitchenController.isTransferringToStore.value 
+                              ? null 
+                              : widget.onClose,
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: GradientButton(
-                          text: 'Transfer',
-                          onPressed: _handleTransfer,
+                          text: kitchenController.isTransferringToStore.value 
+                              ? 'Transferring...' 
+                              : 'Transfer',
+                          onPressed: kitchenController.isTransferringToStore.value 
+                              ? null 
+                              : _handleTransfer,
                           height: 50,
                         ),
                       ),
                     ],
-                  ),
+                  )),
                 ],
               ),
             ),
@@ -205,40 +247,76 @@ class _TransferToStoreModalState extends State<TransferToStoreModal> {
                           elevation: 8,
                           borderRadius: BorderRadius.circular(12),
                           child: Container(
+                            constraints: const BoxConstraints(maxHeight: 200),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: Colors.grey[300]!, width: 1),
                             ),
-                            child: Column(
-                              children: _items.map((item) => 
-                                InkWell(
-                                  onTap: () {
-                                    setState(() {
-                                      _selectedItem = item;
-                                      _showItemDropdown = false;
-                                    });
-                                  },
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      border: item != _items.last 
-                                        ? Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1))
-                                        : null,
+                            child: Obx(() {
+                              final items = kitchenController.kitchenInventory
+                                  .where((item) => item.currentStock > 0)
+                                  .toList();
+                              
+                              if (items.isEmpty) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Text(
+                                    'No items available for transfer',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 16,
                                     ),
-                                    child: Text(
-                                      item,
-                                      style: const TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                );
+                              }
+
+                              return ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: items.length,
+                                itemBuilder: (context, index) {
+                                  final item = items[index];
+                                  return InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedItem = item;
+                                        _showItemDropdown = false;
+                                      });
+                                    },
+                                    child: Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        border: index != items.length - 1
+                                            ? Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1))
+                                            : null,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.itemName,
+                                            style: const TextStyle(
+                                              color: Colors.black,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Stock: ${item.currentStock} ${item.measuringUnit} | Section: ${item.kitchenSection}',
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ),
-                                ),
-                              ).toList(),
-                            ),
+                                  );
+                                },
+                              );
+                            }),
                           ),
                         ),
                       ],
@@ -291,7 +369,7 @@ class _TransferToStoreModalState extends State<TransferToStoreModal> {
                                         : null,
                                     ),
                                     child: Text(
-                                      section,
+                                      _sectionDisplayNames[section] ?? section,
                                       style: const TextStyle(
                                         color: Colors.black,
                                         fontSize: 16,
@@ -329,9 +407,9 @@ class _TransferToStoreModalState extends State<TransferToStoreModal> {
           children: [
             Expanded(
               child: Text(
-                _selectedItem,
+                _selectedItem?.itemName ?? 'Choose item to transfer',
                 style: TextStyle(
-                  color: _selectedItem == 'Choose item to transfer' 
+                  color: _selectedItem == null 
                       ? Colors.grey[600] 
                       : Colors.black,
                   fontWeight: FontWeight.w500,
@@ -364,7 +442,9 @@ class _TransferToStoreModalState extends State<TransferToStoreModal> {
           children: [
             Expanded(
               child: Text(
-                _selectedSection,
+                _selectedSection == 'Select Section' 
+                    ? _selectedSection
+                    : _sectionDisplayNames[_selectedSection] ?? _selectedSection,
                 style: TextStyle(
                   color: _selectedSection == 'Select Section' 
                       ? Colors.grey[600] 

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class KitchenService {
   static const String _getKitchenInventoryEndpoint = '/kitchen/inventory';
   static const String _getTransferHistoryEndpoint = '/kitchen/transfer-history';
+  static const String _transferToStoreEndpoint = '/kitchen/transfer-to-store';
 
   /// Get authorization token from SharedPreferences
   static Future<String?> _getToken() async {
@@ -80,6 +81,53 @@ class KitchenService {
       log("Get Transfer History Response Data: $responseData Status Code: ${response.statusCode}");
       
       if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': responseData,
+        };
+      } else {
+        return {
+          'success': false,
+          'data': responseData
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
+  /// Transfer item to store
+  static Future<Map<String, dynamic>> transferToStore({
+    required String itemId,
+    required String kitchenSection,
+    required int quantity,
+  }) async {
+    try {
+      final token = await _getToken();
+      final url = Uri.parse('$baseUrl$_transferToStoreEndpoint');
+      
+      final requestBody = {
+        'itemId': itemId,
+        'kitchenSection': kitchenSection,
+        'quantity': quantity,
+      };
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      final responseData = jsonDecode(response.body);
+      log("Transfer to Store Response Data: $responseData Status Code: ${response.statusCode}");
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return {
           'success': true,
           'data': responseData,

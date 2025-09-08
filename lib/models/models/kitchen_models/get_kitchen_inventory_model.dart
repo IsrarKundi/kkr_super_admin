@@ -55,6 +55,7 @@ class Data {
 
 class Inventory {
     String id;
+    String itemId;
     String itemName;
     String category;
     String measuringUnit;
@@ -66,6 +67,7 @@ class Inventory {
 
     Inventory({
         required this.id,
+        required this.itemId,
         required this.itemName,
         required this.category,
         required this.measuringUnit,
@@ -78,6 +80,7 @@ class Inventory {
 
     factory Inventory.fromJson(Map<String, dynamic> json) => Inventory(
         id: json["id"],
+        itemId: json["itemId"],
         itemName: json["itemName"],
         category: json["category"],
         measuringUnit: json["measuringUnit"],
@@ -90,6 +93,7 @@ class Inventory {
 
     Map<String, dynamic> toJson() => {
         "id": id,
+        "itemId": itemId,
         "itemName": itemName,
         "category": category,
         "measuringUnit": measuringUnit,

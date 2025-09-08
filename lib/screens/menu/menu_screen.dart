@@ -327,31 +327,7 @@ void _handleAddMenuItem(String menuItemName, String foodSection, String sellingP
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  _tab == 0 ? "Menu Items" : "Deals",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  _tab == 0 
-                    ? "All menu items with cost breakdown"
-                    : "All deals with cost breakdown",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
+              
               const SizedBox(height: 16),
               Expanded(child: _buildTable(rows)),
             ],

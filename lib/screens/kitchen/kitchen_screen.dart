@@ -5,7 +5,6 @@ import 'package:khaabd_web/screens/kitchen/transfer_to_store.dart';
 import 'package:khaabd_web/screens/kitchen/tabs/kitchen_inventory_tab.dart';
 import 'package:khaabd_web/screens/kitchen/tabs/transfer_history_tab.dart';
 import 'package:khaabd_web/screens/widgets/dashboard_header.dart';
-import 'package:khaabd_web/screens/store/transfer_to_kitchen.dart';
 import 'package:khaabd_web/utils/colors.dart';
 import 'package:khaabd_web/widgets/gradient_button.dart';
 import 'package:khaabd_web/controller/getx_controllers/kitchen_controller.dart';
@@ -43,10 +42,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
     });
   }
 
-  void _handleTransfer(String item, String quantity, String section) {
-    print('Transferring $quantity of $item to $section section');
-    // Add your transfer logic here
-  }
+  // Transfer logic is now handled in the modal itself
 
   // Edit inventory modal methods
   void _showEditInventoryModalMethod(Map<String, String> item) {
@@ -151,11 +147,10 @@ class _KitchenScreenState extends State<KitchenScreen> {
             ],
           ),
         ),
-        // Transfer to Kitchen Modal
+        // Transfer to Store Modal
         if (_showTransferModal)
-          TransferToKitchenModal(
+          TransferToStoreModal(
             onClose: _closeTransferModal,
-            onTransfer: _handleTransfer,
           ),
         // Edit Kitchen Inventory Modal
         if (_showEditInventoryModal)
