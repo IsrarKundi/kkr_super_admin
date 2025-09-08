@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:khaabd_web/screens/kitchen/transfer_to_store.dart';
-import 'package:khaabd_web/screens/kitchen/edit_kitchen_inventory.dart';
+import 'package:get/get.dart';
+import 'package:khaabd_web/controller/getx_controllers/menu_controller.dart';
 import 'package:khaabd_web/screens/menu/add_menu_item.dart';
+import 'package:khaabd_web/screens/menu/tabs/menu_items_tab.dart';
 import 'package:khaabd_web/screens/widgets/dashboard_header.dart';
-import 'package:khaabd_web/screens/store/transfer_to_kitchen.dart';
 import 'package:khaabd_web/utils/colors.dart';
 import 'package:khaabd_web/widgets/gradient_button.dart';
+import 'package:khaabd_web/models/models/kitchen_models/get_menu_items.dart';
 
 class MenuScreen extends StatefulWidget {
   final void Function(Map<String, dynamic>)? onShowDetail;
@@ -16,53 +17,13 @@ class MenuScreen extends StatefulWidget {
 }
 
 class _MenuScreenState extends State<MenuScreen> {
+  final MenuGetxController menuController = Get.put(MenuGetxController());
   int _tab = 0;
-bool _showAddMenuItemModal = false;
-bool _showEditMenu = false;
+  bool _showAddMenuItemModal = false;
+  bool _showEditMenu = false;
   Map<String, String>? _editingItem;
 
-  // Mock data for Menu Items
-  final List<Map<String, String>> _menuItems = List.generate(15, (i) => {
-    'menuItem': [
-      'Chicken Biryani',
-      'Beef Karahi',
-      'Mutton Pulao',
-      'Fish Curry',
-      'Chicken Tikka',
-      'Seekh Kebab',
-      'Chicken Fried Rice',
-      'Sweet & Sour Chicken',
-      'Beef Chow Mein',
-      'Vegetable Spring Rolls',
-      'Kabuli Pulao',
-      'Lamb Karahi',
-      'Chicken Burger',
-      'Zinger Burger',
-      'Club Sandwich'
-    ][i],
-    'foodSection': [
-      'Desi', 'Desi', 'Desi', 'Desi', 'Desi',
-      'Desi', 'Chinese', 'Chinese', 'Chinese', 'Chinese',
-      'Afghani', 'Afghani', 'Fast Food', 'Fast Food', 'Fast Food'
-    ][i],
-    'cost': [
-      '450', '520', '380', '350', '280',
-      '320', '420', '380', '450', '180',
-      '480', '550', '250', '280', '220'
-    ][i],
-    'sellingPrice': [
-      '650', '750', '550', '500', '400',
-      '450', '600', '550', '650', '250',
-      '700', '800', '350', '400', '300'
-    ][i],
-    'profitMargin': [
-      '30.8%', '30.7%', '30.9%', '30.0%', '30.0%',
-      '28.9%', '30.0%', '30.9%', '30.8%', '28.0%',
-      '31.4%', '31.3%', '28.6%', '30.0%', '26.7%'
-    ][i],
-  });
-
-  // Mock data for Deals
+  // Mock data for Deals (keeping this for deals tab)
   final List<Map<String, String>> _deals = List.generate(12, (i) => {
     'dealItems': [
       'Chicken Biryani, Raita, Salad',
@@ -116,44 +77,10 @@ void _closeAddMenuItemModal() {
 }
 
 void _handleAddMenuItem(String menuItemName, String foodSection, String sellingPrice, String takeawayPacking, String description, List<Map<String, String>> ingredients) {
-  // Calculate total cost from ingredients
-  double totalCost = 0;
-  for (var ingredient in ingredients) {
-    totalCost += double.tryParse(ingredient['totalCost'] ?? '0') ?? 0;
-  }
-  
-  // Calculate profit margin
-  double selling = double.tryParse(sellingPrice) ?? 0;
-  double profitMargin = selling > 0 ? ((selling - totalCost) / selling * 100) : 0;
-  
-  setState(() {
-    if (_editingItem != null) {
-      // Edit existing item
-      final currentData = _tab == 0 ? _menuItems : _deals;
-      final index = currentData.indexOf(_editingItem!);
-      if (index != -1) {
-        currentData[index] = {
-          _tab == 0 ? 'menuItem' : 'dealItems': menuItemName,
-          'foodSection': foodSection,
-          'cost': totalCost.toStringAsFixed(0),
-          'sellingPrice': sellingPrice,
-          'profitMargin': '${profitMargin.toStringAsFixed(1)}%',
-        };
-      }
-      _editingItem = null;
-    } else {
-      // Add new menu item
-      _menuItems.add({
-        'menuItem': menuItemName,
-        'foodSection': foodSection,
-        'cost': totalCost.toStringAsFixed(0),
-        'sellingPrice': sellingPrice,
-        'profitMargin': '${profitMargin.toStringAsFixed(1)}%',
-      });
-    }
-  });
-  
+  // TODO: Implement API call to add/update menu item
   print(_editingItem != null ? 'Updated menu item: $menuItemName' : 'Added menu item: $menuItemName');
+  // For now, just refresh the menu items
+  menuController.refreshMenuItems();
 }
   // Edit inventory modal methods
   void _showEditInventoryModalMethod(Map<String, String> item) {
@@ -170,33 +97,20 @@ void _handleAddMenuItem(String menuItemName, String foodSection, String sellingP
     });
   }
 
-  void _handleInventoryUpdate(String itemName, String foodSection, String quantity, String measuring, String transferDate, String status) {
-    if (_editingItem != null) {
-      // Find and update the item in the current data
-      final currentData = _tab == 0 ? _menuItems : _deals;
-      final index = currentData.indexOf(_editingItem!);
-      if (index != -1) {
-        setState(() {
-          if (_tab == 0) {
-            currentData[index]['menuItem'] = itemName;
-          } else {
-            currentData[index]['dealItems'] = itemName;
-          }
-          currentData[index]['foodSection'] = foodSection;
-          // Update other fields as needed
-        });
-      }
-      print('Updated item: $itemName, $foodSection');
+  void _handleDeleteItem(dynamic item) {
+    String itemName = '';
+    if (item is Datum) {
+      itemName = item.name;
+    } else if (item is Map<String, String>) {
+      itemName = item[_tab == 0 ? 'menuItem' : 'dealItems'] ?? '';
     }
-  }
 
-  void _handleDeleteItem(Map<String, String> item) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Delete Item'),
-          content: Text('Are you sure you want to delete ${_tab == 0 ? item['menuItem'] : item['dealItems']}?'),
+          content: Text('Are you sure you want to delete $itemName?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -204,15 +118,20 @@ void _handleAddMenuItem(String menuItemName, String foodSection, String sellingP
             ),
             TextButton(
               onPressed: () {
-                setState(() {
-                  if (_tab == 0) {
-                    _menuItems.remove(item);
-                  } else if (_tab == 1) {
-                    _deals.remove(item);
-                  }
-                });
+                // TODO: Implement API call to delete item
                 Navigator.of(context).pop();
-                print('Deleted item: ${_tab == 0 ? item['menuItem'] : item['dealItems']}');
+                print('Deleted item: $itemName');
+                if (_tab == 0) {
+                  // Refresh menu items after deletion
+                  menuController.refreshMenuItems();
+                } else {
+                  // Handle deals deletion
+                  setState(() {
+                    if (item is Map<String, String>) {
+                      _deals.remove(item);
+                    }
+                  });
+                }
               },
               child: const Text('Delete', style: TextStyle(color: Colors.red)),
             ),
@@ -222,71 +141,64 @@ void _handleAddMenuItem(String menuItemName, String foodSection, String sellingP
     );
   }
 
-  List<TableColumn> get _columns {
+  Widget _buildTabContent() {
     switch (_tab) {
-      case 0: // Menu Items
-        return [
-          TableColumn('Menu Item', flex: 3),
-          TableColumn('Food Section', flex: 2),
-          TableColumn('Cost', flex: 2),
-          TableColumn('Selling Price', flex: 2),
-          TableColumn('Profit Margin', flex: 2),
-          TableColumn('Action', flex: 2),
-        ];
-      case 1: // Deals
-        return [
-          TableColumn('Deal Items', flex: 3),
-          TableColumn('Food Section', flex: 2),
-          TableColumn('Cost', flex: 2),
-          TableColumn('Selling Price', flex: 2),
-          TableColumn('Profit Margin', flex: 2),
-          TableColumn('Action', flex: 2),
-        ];
+      case 0:
+        return MenuItemsTab(
+          menuController: menuController,
+          onEditItem: _showEditInventoryModalMethod,
+          onDeleteItem: _handleDeleteItem,
+        );
+      case 1:
+        return _buildDealsTable();
       default:
-        return [];
+        return Container();
     }
+  }
+
+  Widget _buildDealsTable() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 32),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: [
+          _buildTableHeader(),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: _deals.map((item) => _buildTableRow(item)).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<TableColumn> get _columns {
+    return [
+      TableColumn('Deal Items', flex: 3),
+      TableColumn('Food Section', flex: 2),
+      TableColumn('Cost', flex: 2),
+      TableColumn('Selling Price', flex: 2),
+      TableColumn('Profit Margin', flex: 2),
+      TableColumn('Action', flex: 2),
+    ];
   }
 
   List<String> _getRowData(Map<String, String> item) {
-    switch (_tab) {
-      case 0: // Menu Items
-        return [
-          item['menuItem']!,
-          item['foodSection']!,
-          'Rs. ${item['cost']!}',
-          'Rs. ${item['sellingPrice']!}',
-          item['profitMargin']!,
-          ''
-        ];
-      case 1: // Deals
-        return [
-          item['dealItems']!,
-          item['foodSection']!,
-          'Rs. ${item['cost']!}',
-          'Rs. ${item['sellingPrice']!}',
-          item['profitMargin']!,
-          ''
-        ];
-      default:
-        return [];
-    }
-  }
-
-  List<Map<String, String>> get _currentData {
-    switch (_tab) {
-      case 0:
-        return _menuItems;
-      case 1:
-        return _deals;
-      default:
-        return [];
-    }
+    return [
+      item['dealItems']!,
+      item['foodSection']!,
+      'Rs. ${item['cost']!}',
+      'Rs. ${item['sellingPrice']!}',
+      item['profitMargin']!,
+      ''
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
-    final rows = _currentData;
-
     return Stack(
       children: [
         Container(
@@ -329,7 +241,7 @@ void _handleAddMenuItem(String menuItemName, String foodSection, String sellingP
               ),
               
               const SizedBox(height: 16),
-              Expanded(child: _buildTable(rows)),
+              Expanded(child: _buildTabContent()),
             ],
           ),
         ),
