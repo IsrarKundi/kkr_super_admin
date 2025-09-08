@@ -121,7 +121,7 @@ class MenuService {
     try {
       final token = await _getToken();
       final url = Uri.parse('$baseUrl$_getItemsBySectionEndpoint?page=$page&limit=$limit&kitchenSection=$kitchenSection');
-      
+      log("url : $url");
       final response = await http.get(
         url,
         headers: {

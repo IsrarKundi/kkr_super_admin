@@ -263,20 +263,20 @@ Future<void> _handleAddMenuItem(String menuItemName, String foodSection, String 
         if (_showAddMenuItemModal)
           AddMenuItemModal(
             onClose: _closeAddMenuItemModal,
-            onSave: _handleAddMenuItem,
+            // onSave: _handleAddMenuItem,
           ),
         // Edit Kitchen Inventory Modal
         if (_showAddMenuItemModal)
   AddMenuItemModal(
     onClose: _closeAddMenuItemModal,
-    onSave: _handleAddMenuItem,
-    isEditMode: _editingItem != null,
-    initialMenuItemName: _editingItem?[_tab == 0 ? 'menuItem' : 'dealItems'],
-    initialFoodSection: _editingItem?['foodSection'],
-    initialSellingPrice: _editingItem?['sellingPrice'],
-    initialTakeawayPacking: _editingItem?['takeawayPacking'],
-    initialDescription: _editingItem?['description'],
-    initialIngredients:  null,
+    // onSave: _handleAddMenuItem,
+    // isEditMode: _editingItem != null,
+    // initialMenuItemName: _editingItem?[_tab == 0 ? 'menuItem' : 'dealItems'],
+    // initialFoodSection: _editingItem?['foodSection'],
+    // initialSellingPrice: _editingItem?['sellingPrice'],
+    // initialTakeawayPacking: _editingItem?['takeawayPacking'],
+    // initialDescription: _editingItem?['description'],
+    // initialIngredients:  null,
   ),
       ],
     );

@@ -9,28 +9,9 @@ import 'package:khaabd_web/models/models/kitchen_models/get_items_by_section_mod
 
 class AddMenuItemModal extends StatefulWidget {
   final VoidCallback onClose;
-  final Function(String menuItemName, String foodSection, String sellingPrice, String takeawayPacking, String description, List<Map<String, String>> ingredients) onSave;
-  
-  // Optional parameters for editing existing menu item
-  final String? initialMenuItemName;
-  final String? initialFoodSection;
-  final String? initialSellingPrice;
-  final String? initialTakeawayPacking;
-  final String? initialDescription;
-  final List<Map<String, String>>? initialIngredients;
-  final bool isEditMode;
-
   const AddMenuItemModal({
     Key? key,
     required this.onClose,
-    required this.onSave,
-    this.initialMenuItemName,
-    this.initialFoodSection,
-    this.initialSellingPrice,
-    this.initialTakeawayPacking,
-    this.initialDescription,
-    this.initialIngredients,
-    this.isEditMode = false,
   }) : super(key: key);
 
   @override
@@ -38,150 +19,167 @@ class AddMenuItemModal extends StatefulWidget {
 }
 
 class _AddMenuItemModalState extends State<AddMenuItemModal> {
+  final MenuGetxController menuController = Get.find();
   final TextEditingController _menuItemNameController = TextEditingController();
   final TextEditingController _sellingPriceController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  
-  String _selectedFoodSection = 'Select Food Section';
-  String _selectedTakeawayPacking = 'Select Packing';
-  
-  bool _showFoodSectionDropdown = false;
-  bool _showTakeawayPackingDropdown = false;
-  
-  final List<String> _foodSections = ['Desi', 'Afghani', 'Chinese', 'Fast Food'];
-  final List<String> _takeawayPackingOptions = ['Small Box', 'Medium Box', 'Large Box'];
-  final List<String> _kitchenItems = ['Rice', 'Chicken', 'Beef', 'Vegetables', 'Spices', 'Oil', 'Onions', 'Tomatoes'];
-  
+
+  String? _selectedSection;
+  String? _selectedPacking;
   List<Map<String, dynamic>> _ingredients = [];
-  
-  @override
-  void initState() {
-    super.initState();
-    // Pre-fill fields if in edit mode
-    if (widget.isEditMode) {
-      _menuItemNameController.text = widget.initialMenuItemName ?? '';
-      _sellingPriceController.text = widget.initialSellingPrice ?? '';
-      _descriptionController.text = widget.initialDescription ?? '';
-      _selectedFoodSection = widget.initialFoodSection ?? 'Select Food Section';
-      _selectedTakeawayPacking = widget.initialTakeawayPacking ?? 'Select Packing';
-      
-      if (widget.initialIngredients != null) {
-        _ingredients = widget.initialIngredients!.map((ingredient) => {
-          'kitchenItem': ingredient['kitchenItem'] ?? 'Select Item',
-          'quantity': TextEditingController(text: ingredient['quantity'] ?? ''),
-          'unitCost': TextEditingController(text: ingredient['unitCost'] ?? ''),
-          'totalCost': TextEditingController(text: ingredient['totalCost'] ?? ''),
-          'showDropdown': false,
-        }).toList();
-      }
-    }
-  }
+
+  // These lists are dynamically populated after section fetch
+  List<IngredientsDatum> _packingOptions = [];
+  List<IngredientsDatum> _kitchenOptions = [];
+
+  bool _isFetchingSectionItems = false;
+  bool _isAddingMenuItem = false; // for button/loading control
 
   @override
   void dispose() {
     _menuItemNameController.dispose();
     _sellingPriceController.dispose();
     _descriptionController.dispose();
-    
-    for (var ingredient in _ingredients) {
-      ingredient['quantity'].dispose();
-      ingredient['unitCost'].dispose();
-      ingredient['totalCost'].dispose();
+    for (var ing in _ingredients) {
+      if (ing['quantity'] is TextEditingController) ing['quantity'].dispose();
+      if (ing['unitCost'] is TextEditingController) ing['unitCost'].dispose();
+      if (ing['totalCost'] is TextEditingController) ing['totalCost'].dispose();
     }
     super.dispose();
   }
 
+  Future<void> _onSectionSelect(String section) async {
+    setState(() {
+      _selectedSection = section;
+      _isFetchingSectionItems = true;
+      _selectedPacking = null;
+      _packingOptions = [];
+      _kitchenOptions = [];
+      _ingredients = [];
+    });
+
+    await menuController.getItemsBySection(
+      kitchenSection: section.toLowerCase().replaceAll(' ', '-'),
+      limit: 50,
+    );
+    final list = menuController.itemsBySection;
+    setState(() {
+      _packingOptions = list.where((item) => (item.category?.toLowerCase() ?? '') == 'packing').toList();
+      _kitchenOptions = list.where((item) => (item.category?.toLowerCase() ?? '') == 'kitchen').toList();
+      _isFetchingSectionItems = false;
+    });
+  }
+
   void _addIngredient() {
+    if (_kitchenOptions.isEmpty) return;
     setState(() {
       _ingredients.add({
-        'kitchenItem': 'Select Item',
+        'kitchenItem': null,
         'quantity': TextEditingController(),
-        'unitCost': TextEditingController(),
-        'totalCost': TextEditingController(),
-        'showDropdown': false,
+        'unitCost': TextEditingController(),    // Will always be set by ingredient selection
+        'totalCost': TextEditingController(),   // Will always be calculated
       });
     });
   }
 
-  void _removeIngredient(int index) {
+  void _removeIngredient(int idx) {
+    (_ingredients[idx]['quantity'] as TextEditingController).dispose();
+    (_ingredients[idx]['unitCost'] as TextEditingController).dispose();
+    (_ingredients[idx]['totalCost'] as TextEditingController).dispose();
     setState(() {
-      _ingredients[index]['quantity'].dispose();
-      _ingredients[index]['unitCost'].dispose();
-      _ingredients[index]['totalCost'].dispose();
-      _ingredients.removeAt(index);
+      _ingredients.removeAt(idx);
     });
   }
 
-  void _calculateTotalCost(int index) {
-    final quantity = double.tryParse(_ingredients[index]['quantity'].text) ?? 0;
-    final unitCost = double.tryParse(_ingredients[index]['unitCost'].text) ?? 0;
-    final totalCost = quantity * unitCost;
-    _ingredients[index]['totalCost'].text = totalCost.toStringAsFixed(2);
+  void _onKitchenItemChanged(int idx, IngredientsDatum? selected) {
+    setState(() {
+      _ingredients[idx]['kitchenItem'] = selected;
+      // Retrieve cost from ingredient field (`selected.cost` or similar)
+      int? unitCost;
+      // Try: searching for field name for cost - let's assume field is called unitCost (adjust as per model)
+      try {
+        // If cost is not 'unitCost', update here:
+        if (selected != null) {
+          unitCost = selected.pricePerUnit ?? 0;
+        } else {
+          unitCost = 0;
+        }
+      } catch (_) {
+        unitCost = 0;
+      }
+      (_ingredients[idx]['unitCost'] as TextEditingController).text = unitCost == null ? "0" : unitCost.toStringAsFixed(2);
+      _calculateTotal(idx);
+    });
   }
 
-  double _getTotalPrice() {
-    double total = 0;
-    for (var ingredient in _ingredients) {
-      total += double.tryParse(ingredient['totalCost'].text) ?? 0;
-    }
-    return total;
+  void _calculateTotal(int idx) {
+    final q = double.tryParse((_ingredients[idx]['quantity'] as TextEditingController).text) ?? 0;
+    final uc = double.tryParse((_ingredients[idx]['unitCost'] as TextEditingController).text) ?? 0;
+    (_ingredients[idx]['totalCost'] as TextEditingController).text = (q * uc).toStringAsFixed(2);
+    setState(() {});
   }
+
+  double _getTotalPrice() =>
+    _ingredients.fold(0, (sum, x) =>
+      sum + (double.tryParse((x['totalCost'] as TextEditingController).text) ?? 0));
 
   double _getProfitMargin() {
-    final sellingPrice = double.tryParse(_sellingPriceController.text) ?? 0;
-    final totalPrice = _getTotalPrice();
-    return sellingPrice - totalPrice;
+    final selling = double.tryParse(_sellingPriceController.text) ?? 0;
+    return selling - _getTotalPrice();
   }
 
-  void _handleSave() {
-    if (_menuItemNameController.text.isNotEmpty && 
-        _selectedFoodSection != 'Select Food Section' &&
-        _sellingPriceController.text.isNotEmpty &&
-        _selectedTakeawayPacking != 'Select Packing' &&
-        _descriptionController.text.isNotEmpty) {
-      
-      // Fixed: Properly cast to Map<String, String>
-      List<Map<String, String>> ingredientsList = _ingredients.map((ingredient) => <String, String>{
-        'kitchenItem': ingredient['kitchenItem'] as String,
-        'quantity': (ingredient['quantity'] as TextEditingController).text,
-        'unitCost': (ingredient['unitCost'] as TextEditingController).text,
-        'totalCost': (ingredient['totalCost'] as TextEditingController).text,
-      }).toList();
-      
-      widget.onSave(
-        _menuItemNameController.text,
-        _selectedFoodSection,
-        _sellingPriceController.text,
-        _selectedTakeawayPacking,
-        _descriptionController.text,
-        ingredientsList,
-      );
-      widget.onClose();
+  bool get _canSubmit =>
+    _selectedSection != null &&
+    _selectedPacking != null &&
+    _menuItemNameController.text.trim().isNotEmpty &&
+    _sellingPriceController.text.trim().isNotEmpty &&
+    _descriptionController.text.trim().isNotEmpty &&
+    _ingredients.isNotEmpty &&
+    _ingredients.every((x) => x['kitchenItem'] != null && (x['quantity'] as TextEditingController).text.trim().isNotEmpty);
+
+  Future<void> _handleAddMenuItem() async {
+    if (!_canSubmit) {
+      Get.snackbar('Missing Info', 'Please fill all required fields.');
+      return;
     }
+    setState(() => _isAddingMenuItem = true);
+
+    final packingId = _packingOptions.firstWhere(
+      (e) => e.itemName == _selectedPacking, 
+      orElse: () => _packingOptions.first,
+    ).kitchenItemId ?? '';
+    final ingredientsApiList = _ingredients.map((x) => {
+      'item': (x['kitchenItem'] as IngredientsDatum).kitchenItemId,
+      'quantity': int.tryParse((x['quantity'] as TextEditingController).text) ?? 0
+    }).toList();
+
+    final success = await menuController.addMenuItem(
+      menuItemName: _menuItemNameController.text.trim(),
+      foodSection: _selectedSection!,
+      sellingPrice: int.tryParse(_sellingPriceController.text) ?? 0,
+      description: _descriptionController.text.trim(),
+      takeAwayPacking: packingId,
+      ingredients: ingredientsApiList,
+    );
+
+    if (success) {
+      await menuController.getMenuItems(); // refresh list
+      widget.onClose(); // close modal
+    }
+    setState(() => _isAddingMenuItem = false);
   }
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Background overlay
+        // Dimmed background
         Positioned.fill(
           child: GestureDetector(
-            onTap: () {
-              if (_showFoodSectionDropdown) {
-                setState(() => _showFoodSectionDropdown = false);
-              } else if (_showTakeawayPackingDropdown) {
-                setState(() => _showTakeawayPackingDropdown = false);
-              } else {
-                widget.onClose();
-              }
-            },
-            child: Container(
-              color: Colors.black.withOpacity(0.5),
-            ),
+            onTap: widget.onClose,
+            child: Container(color: Colors.black.withOpacity(0.50)),
           ),
         ),
-        // Modal content
         Center(
           child: Material(
             color: Colors.transparent,
@@ -209,9 +207,9 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Spacer(),
-                        Text(
-                          widget.isEditMode ? 'Edit Menu Item' : 'Add New Menu Item',
-                          style: const TextStyle(
+                        const Text(
+                          "Add New Menu Item",
+                          style: TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.w600,
                             fontSize: 18,
@@ -226,8 +224,7 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
-                    // Menu Item Name and Food Section Row
+                    // Section selection and name
                     Row(
                       children: [
                         Expanded(
@@ -236,10 +233,7 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
                             children: [
                               const Text(
                                 'Menu Item Name',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                                ),
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                               ),
                               const SizedBox(height: 8),
                               CustomTextField(
@@ -257,21 +251,31 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
                             children: [
                               const Text(
                                 'Food Section',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                                ),
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                               ),
                               const SizedBox(height: 8),
-                              _buildFoodSectionDropdown(),
+                              DropdownButtonFormField<String>(
+                                value: _selectedSection,
+                                isDense: true,
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+                                ),
+                                hint: const Text('Select Section'),
+                                items: const ['Desi', 'Continental', 'Fast Food']
+                                    .map((e) => DropdownMenuItem(child: Text(e), value: e))
+                                    .toList(),
+                                onChanged: (val) {
+                                  if (val != null) _onSectionSelect(val);
+                                },
+                              ),
                             ],
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Selling Price and Takeaway Packing Row
+                    // Selling price and packing
                     Row(
                       children: [
                         Expanded(
@@ -280,16 +284,15 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
                             children: [
                               const Text(
                                 'Selling Price',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                                ),
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                               ),
                               const SizedBox(height: 8),
                               CustomTextField(
                                 controller: _sellingPriceController,
                                 hintText: 'Enter selling price',
                                 borderRadius: 8,
+                                keyboardType: TextInputType.number,
+                                onChanged: (_) => setState(() {}),
                               ),
                             ],
                           ),
@@ -301,28 +304,41 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
                             children: [
                               const Text(
                                 'Takeaway Packing',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                                ),
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                               ),
                               const SizedBox(height: 8),
-                              _buildTakeawayPackingDropdown(),
+                              _isFetchingSectionItems
+                                  ? Container(
+                                      height: 48,
+                                      alignment: Alignment.center,
+                                      child: const CircularProgressIndicator(),
+                                    )
+                                  : DropdownButtonFormField<String>(
+                                      value: _selectedPacking,
+                                      isDense: true,
+                                      hint: const Text('Select Packing'),
+                                      decoration: InputDecoration(
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+                                      ),
+                                      items: _packingOptions
+                                          .map((e) => DropdownMenuItem<String>(
+                                                child: Text(e.itemName ?? ''),
+                                                value: e.itemName,
+                                              ))
+                                          .toList(),
+                                      onChanged: (val) {
+                                        setState(() => _selectedPacking = val);
+                                      },
+                                    ),
                             ],
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Description Field
-                    const Text(
-                      'Description',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
+                    // Description
+                    const Text('Description', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
                     const SizedBox(height: 8),
                     CustomTextField(
                       controller: _descriptionController,
@@ -331,20 +347,13 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
                       maxLines: 3,
                     ),
                     const SizedBox(height: 20),
-                    
-                    // Ingredients & Recipe Section
+                    // Ingredients List
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Ingredients & Recipe',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
+                        const Text('Ingredients & Recipe', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                         ElevatedButton(
-                          onPressed: _addIngredient,
+                          onPressed: _kitchenOptions.isEmpty ? null : _addIngredient,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.black,
                             foregroundColor: Colors.white,
@@ -355,27 +364,96 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    
-                    // Ingredients List
                     ..._ingredients.asMap().entries.map((entry) {
-                      int index = entry.key;
-                      return _buildIngredientRow(index);
-                    }).toList(),
-                    
+                      final idx = entry.key;
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            // Kitchen Item Dropdown
+                            Expanded(
+                              flex: 2,
+                              child: DropdownButtonFormField<IngredientsDatum>(
+                                value: _ingredients[idx]['kitchenItem'],
+                                isDense: true,
+                                hint: const Text('Select Item'),
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                ),
+                                items: _kitchenOptions
+                                    .map(
+                                      (e) => DropdownMenuItem(
+                                        value: e,
+                                        child: Text(
+                                          e.itemName ?? '',
+                                          style: TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (val) {
+                                  _onKitchenItemChanged(idx, val);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: CustomTextField(
+                                controller: _ingredients[idx]['quantity'],
+                                hintText: 'Qty',
+                                borderRadius: 6,
+                                keyboardType: TextInputType.number,
+                                onChanged: (_) => _calculateTotal(idx),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: CustomTextField(
+                                controller: _ingredients[idx]['unitCost'],
+                                hintText: 'Unit Cost',
+                                borderRadius: 6,
+                                keyboardType: TextInputType.number,
+                                readOnly: true, // <-- read only
+                                enabled: false, // disables editing, but still readable
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: CustomTextField(
+                                controller: _ingredients[idx]['totalCost'],
+                                hintText: 'Total',
+                                borderRadius: 6,
+                                readOnly: true, // <-- read only
+                                enabled: false, // disables editing, but still readable
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () => _removeIngredient(idx),
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: SvgPicture.asset(
+                                  "assets/svgs/delete_icon.svg",
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                     const SizedBox(height: 20),
-                    
                     // Cost Analysis
-                    const Text(
-                      'Cost Analysis',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
+                    const Text('Cost Analysis', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                     const Divider(thickness: 1, color: Colors.grey),
                     const SizedBox(height: 12),
-                    
-                    // Cost Analysis Labels
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -385,40 +463,18 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    
-                    // Cost Analysis Values
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '\$${_getTotalPrice().toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.red,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          '\$${_sellingPriceController.text.isEmpty ? "0.00" : double.tryParse(_sellingPriceController.text)?.toStringAsFixed(2) ?? "0.00"}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.green,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          '\$${_getProfitMargin().toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.blue,
-                            fontSize: 16,
-                          ),
-                        ),
+                        Text('\$${_getTotalPrice().toStringAsFixed(2)}',
+                            style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.red, fontSize: 16)),
+                        Text('\$${_sellingPriceController.text.isEmpty ? "00" : double.tryParse(_sellingPriceController.text)?.toStringAsFixed(2) ?? "00"}',
+                            style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.green, fontSize: 16)),
+                        Text('\$${_getProfitMargin().toStringAsFixed(2)}',
+                            style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.blue, fontSize: 16)),
                       ],
                     ),
                     const SizedBox(height: 24),
-                    
-                    // Action Buttons
                     Row(
                       children: [
                         Expanded(
@@ -430,8 +486,8 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: GradientButton(
-                            text: widget.isEditMode ? 'Update' : 'Add Menu Item',
-                            onPressed: _handleSave,
+                            text: _isAddingMenuItem ? 'Adding Menu Item...' : 'Add Menu Item',
+                            onPressed: _isAddingMenuItem ? null : _handleAddMenuItem,
                             height: 48,
                           ),
                         ),
@@ -443,237 +499,7 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
             ),
           ),
         ),
-        
-        // Food Section Dropdown overlay
-        if (_showFoodSectionDropdown)
-          _buildDropdownOverlay(_foodSections, (section) {
-            setState(() {
-              _selectedFoodSection = section;
-              _showFoodSectionDropdown = false;
-            });
-          }, 200),
-          
-        // Takeaway Packing Dropdown overlay
-        if (_showTakeawayPackingDropdown)
-          _buildDropdownOverlay(_takeawayPackingOptions, (packing) {
-            setState(() {
-              _selectedTakeawayPacking = packing;
-              _showTakeawayPackingDropdown = false;
-            });
-          }, 200),
       ],
-    );
-  }
-
-  Widget _buildFoodSectionDropdown() {
-    return GestureDetector(
-      onTap: () => setState(() => _showFoodSectionDropdown = !_showFoodSectionDropdown),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.black, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _selectedFoodSection,
-              style: TextStyle(
-                color: _selectedFoodSection == 'Select Food Section' 
-                    ? Colors.grey[600] 
-                    : Colors.black,
-              ),
-            ),
-            Icon(
-              _showFoodSectionDropdown ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTakeawayPackingDropdown() {
-    return GestureDetector(
-      onTap: () => setState(() => _showTakeawayPackingDropdown = !_showTakeawayPackingDropdown),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.black, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _selectedTakeawayPacking,
-              style: TextStyle(
-                color: _selectedTakeawayPacking == 'Select Packing' 
-                    ? Colors.grey[600] 
-                    : Colors.black,
-              ),
-            ),
-            Icon(
-              _showTakeawayPackingDropdown ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildIngredientRow(int index) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // Kitchen Item Dropdown
-          Expanded(
-            flex: 2,
-            child: _buildKitchenItemDropdown(index),
-          ),
-          const SizedBox(width: 8),
-          
-          // Quantity Field
-          Expanded(
-            child: CustomTextField(
-              controller: _ingredients[index]['quantity'],
-              hintText: 'Qty',
-              borderRadius: 6,
-              onChanged: (value) => _calculateTotalCost(index),
-            ),
-          ),
-          const SizedBox(width: 8),
-          
-          // Unit Cost Field
-          Expanded(
-            child: CustomTextField(
-              controller: _ingredients[index]['unitCost'],
-              hintText: 'Unit Cost',
-              borderRadius: 6,
-              onChanged: (value) => _calculateTotalCost(index),
-            ),
-          ),
-          const SizedBox(width: 8),
-          
-          // Total Cost Field
-          Expanded(
-            child: CustomTextField(
-              controller: _ingredients[index]['totalCost'],
-              hintText: 'Total',
-              borderRadius: 6,
-              readOnly: true,
-            ),
-          ),
-          const SizedBox(width: 8),
-          
-          // Delete Button
-          GestureDetector(
-            onTap: () => _removeIngredient(index),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: SvgPicture.asset("assets/svgs/delete_icon.svg", color: Colors.white,),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildKitchenItemDropdown(int index) {
-    return GestureDetector(
-      onTap: () => setState(() => _ingredients[index]['showDropdown'] = !_ingredients[index]['showDropdown']),
-      child: Container(
-        height: 49,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.black, width: 1),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                _ingredients[index]['kitchenItem'],
-                style: TextStyle(
-                  color: _ingredients[index]['kitchenItem'] == 'Select Item' 
-                      ? Colors.grey[600] 
-                      : Colors.black,
-                  fontSize: 12,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Icon(
-              _ingredients[index]['showDropdown'] ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-              size: 16,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDropdownOverlay(List<String> items, Function(String) onSelect, double topOffset) {
-    return Positioned.fill(
-      child: GestureDetector(
-        onTap: () => setState(() {
-          _showFoodSectionDropdown = false;
-          _showTakeawayPackingDropdown = false;
-        }),
-        child: Center(
-          child: Column(
-            children: [
-              SizedBox(height: topOffset),
-              Material(
-                elevation: 8,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 200),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey[300]!, width: 1),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: items.map((item) => 
-                      InkWell(
-                        onTap: () => onSelect(item),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            border: item != items.last 
-                              ? Border(bottom: BorderSide(color: Colors.grey[300]!, width: 1))
-                              : null,
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ).toList(),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
