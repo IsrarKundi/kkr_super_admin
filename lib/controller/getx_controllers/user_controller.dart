@@ -30,6 +30,7 @@ class UserController extends GetxController {
     required String username,
     required String role,
     required String password,
+    required String email,
     required BuildContext context,
   }) async {
     try {
@@ -39,6 +40,7 @@ class UserController extends GetxController {
         username: username,
         role: role,
         password: password,
+        email: email,
       );
 
       if (result['success']) {
@@ -49,6 +51,7 @@ class UserController extends GetxController {
           id: userData['id'] ?? '', // API might not return ID immediately
           username: userData['username'],
           role: userData['role'],
+          email: userData['email'],
           createdAt: DateTime.parse(userData['createdAt']),
           lastActive: userData['lastActive'],
         );
@@ -174,6 +177,7 @@ class UserController extends GetxController {
     required String username,
     required String role,
     required String password,
+    required String email,
     required BuildContext context,
   }) async {
     try {
@@ -184,6 +188,7 @@ class UserController extends GetxController {
         username: username,
         role: role,
         password: password,
+        email: email,
       );
 
       if (result['success']) {

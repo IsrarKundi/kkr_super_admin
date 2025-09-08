@@ -26,6 +26,7 @@ class UserService {
     required String username,
     required String role,
     required String password,
+    required String email,
   }) async {
     try {
       final token = await _getToken();
@@ -41,6 +42,7 @@ class UserService {
           'username': username,
           'role': role,
           'password': password,
+          'email': email,
         }),
       );
 
@@ -111,6 +113,7 @@ class UserService {
     required String username,
     required String role,
     required String password,
+    required String email,
   }) async {
     try {
       final token = await _getToken();
@@ -126,6 +129,7 @@ class UserService {
           'username': username,
           'role': role,
           'password': password,
+          'email': email,
         }),
       );
 

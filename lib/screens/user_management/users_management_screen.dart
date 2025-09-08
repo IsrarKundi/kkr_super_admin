@@ -34,24 +34,26 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     TableColumn('Action', flex: 1),
   ];
 
-  void _handleAddUser(String name, String role, String password) async {
+  void _handleAddUser(String name, String role, String password, String email) async {
     await userController.addNewUser(
       username: name,
       role: role.toLowerCase(),
       password: password,
+      email: email,
       context: context,
     );
     // Close the modal after successful API call
     setState(() => _showAddUser = false);
   }
 
-  void _handleEditUser(String name, String role, String password) async {
+  void _handleEditUser(String name, String role, String password, String email) async {
     if (_userToEdit != null) {
       await userController.updateUser(
         userId: _userToEdit!.id,
         username: name,
         role: role.toLowerCase(),
         password: password,
+        email: email,
         context: context,
       );
       // Close the modal after successful API call
@@ -129,6 +131,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             initialName: _userToEdit!.username,
             initialRole: _userToEdit!.role,
             initialPassword: "",
+            initialEmail: _userToEdit!.email,
           ),
         if (_showDeleteUser && _userToDelete != null)
           DeleteUserModal(

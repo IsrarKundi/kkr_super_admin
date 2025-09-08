@@ -284,7 +284,7 @@ class _TransferToKitchenModalState extends State<TransferToKitchenModal> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 24 + 26 + 24 + 16 + 8 + 50 + 20 + 16 + 8), // Offset to position dropdown correctly
+                  // const SizedBox(height: 24 + 26 + 24 + 16 + 8 + 50 + 20 + 16 + 8), // Offset to position dropdown correctly
                   Material(
                     elevation: 8,
                     borderRadius: BorderRadius.circular(12),
@@ -380,7 +380,7 @@ class _TransferToKitchenModalState extends State<TransferToKitchenModal> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 24 + 26 + 24 + 16 + 8 + 50 + 20 + 16 + 8 + 50 + 20 + 16 + 8), // Offset to position dropdown correctly
+                  const SizedBox(height: 24 + 26 + 24 + 16 + 8 + 50 + 20 + 16 + 8 +120 + 50 + 20 + 16 + 8), // Offset to position dropdown correctly
                   Material(
                     elevation: 8,
                     borderRadius: BorderRadius.circular(12),

@@ -42,7 +42,7 @@ class _TransferToStoreModalState extends State<TransferToStoreModal> {
     'Eggs'
   ];
 
-  final List<String> _sections = ['Desi', 'Kabuli', 'Chinese', 'Fast Food'];
+  final List<String> _sections = ['Desi', 'Continental', 'Fast Food'];
 
   @override
   void dispose() {
@@ -152,7 +152,7 @@ class _TransferToStoreModalState extends State<TransferToStoreModal> {
                   const SizedBox(height: 20),
                   // Transfer to Section Field
                   const Text(
-                    'Transfer to Section',
+                    'Transfer from Section',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 16,

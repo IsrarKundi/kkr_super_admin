@@ -36,7 +36,7 @@ class KitchenController extends GetxController {
   /// Get kitchen inventory
   Future<void> getKitchenInventory({
     int page = 1,
-    int limit = 16,
+    int limit = 13,
     String section = 'all',
     bool showLoading = true,
   }) async {
@@ -78,7 +78,7 @@ class KitchenController extends GetxController {
   /// Get transfer history
   Future<void> getTransferHistory({
     int page = 1,
-    int limit = 16,
+    int limit = 13,
     bool showLoading = true,
   }) async {
     try {

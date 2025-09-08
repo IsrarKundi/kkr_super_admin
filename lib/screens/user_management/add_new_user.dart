@@ -7,12 +7,13 @@ import 'package:khaabd_web/controller/getx_controllers/user_controller.dart';
 
 class AddUserModal extends StatefulWidget {
   final VoidCallback onClose;
-  final Function(String name, String role, String password) onSave;
+  final Function(String name, String role, String password, String email) onSave;
   
   // Optional parameters for editing existing user
   final String? initialName;
   final String? initialRole;
   final String? initialPassword;
+  final String? initialEmail;
   final String? userId;
   final bool isEditMode;
 
@@ -23,6 +24,7 @@ class AddUserModal extends StatefulWidget {
     this.initialName,
     this.initialRole,
     this.initialPassword,
+    this.initialEmail,
     this.userId,
     this.isEditMode = false,
   }) : super(key: key);
@@ -34,6 +36,7 @@ class AddUserModal extends StatefulWidget {
 class _AddUserModalState extends State<AddUserModal> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final UserController userController = Get.find<UserController>();
   
   String _selectedRole = 'Select Role';
@@ -42,11 +45,15 @@ class _AddUserModalState extends State<AddUserModal> {
   String? _nameError;
   String? _roleError;
   String? _passwordError;
+  String? _emailError;
   
   final List<String> _roles = ['kitchen', 'HR', 'Store', 'Finance'];
   
   // Password regex pattern: at least 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special character
   final RegExp _passwordRegex = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
+  
+  // Email regex pattern
+  final RegExp _emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
 
   @override
   void initState() {
@@ -56,6 +63,7 @@ class _AddUserModalState extends State<AddUserModal> {
     if (widget.isEditMode) {
       _nameController.text = widget.initialName ?? '';
       _passwordController.text = widget.initialPassword ?? '';
+      _emailController.text = widget.initialEmail ?? '';
       _selectedRole = widget.initialRole ?? 'Select Role';
     }
   }
@@ -64,6 +72,7 @@ class _AddUserModalState extends State<AddUserModal> {
   void dispose() {
     _nameController.dispose();
     _passwordController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -72,12 +81,28 @@ class _AddUserModalState extends State<AddUserModal> {
       _nameError = null;
       _roleError = null;
       _passwordError = null;
+      _emailError = null;
     });
 
     // Validate name
     if (_nameController.text.trim().isEmpty) {
       setState(() {
         _nameError = 'User name is required';
+      });
+      return;
+    }
+
+    // Validate email
+    if (_emailController.text.trim().isEmpty) {
+      setState(() {
+        _emailError = 'Email is required';
+      });
+      return;
+    }
+
+    if (!_emailRegex.hasMatch(_emailController.text.trim())) {
+      setState(() {
+        _emailError = 'Please enter a valid email address';
       });
       return;
     }
@@ -111,7 +136,7 @@ class _AddUserModalState extends State<AddUserModal> {
 
   void _handleSave() async {
     try {
-      await widget.onSave(_nameController.text.trim(), _selectedRole, _passwordController.text);
+      await widget.onSave(_nameController.text.trim(), _selectedRole, _passwordController.text, _emailController.text.trim());
       // Don't close here - let the parent handle closing after successful API call
     } catch (e) {
       // Handle any errors from the save operation
@@ -201,12 +226,41 @@ class _AddUserModalState extends State<AddUserModal> {
                       controller: _nameController,
                       hintText: 'Enter user name',
                       borderRadius: 12.0,
-                      enabled: !isLoading,
                     ),
                     if (_nameError != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         _nameError!,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    
+                    // Email Field
+                    const Text(
+                      'Email',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+
+                      ),
+                      
+                    ),
+                    const SizedBox(height: 8),
+                    CustomTextField(
+                      controller: _emailController,
+                      hintText: 'Enter email address',
+                      borderRadius: 12.0,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    if (_emailError != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _emailError!,
                         style: const TextStyle(
                           color: Colors.red,
                           fontSize: 12,
@@ -302,7 +356,7 @@ class _AddUserModalState extends State<AddUserModal> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const SizedBox(height: 24 + 26 + 24 + 16 + 8 + 50 + 20 + 16 + 8), // Offset to position dropdown correctly
+                          const SizedBox(height: 24 + 26 + 24 + 16 + 8 + 50 + 20 + 16 + 8 + 50 + 20 + 16 + 8), // Offset to position dropdown correctly
                           Material(
                             elevation: 8,
                             borderRadius: BorderRadius.circular(12),
@@ -362,7 +416,7 @@ class _AddUserModalState extends State<AddUserModal> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isLoading ? Colors.grey[100] : Colors.transparent,
+          color: Colors.transparent,
           border: Border.all(
             color: _roleError != null ? Colors.red : Colors.black, 
             width: 1.0
@@ -396,6 +450,8 @@ class _AddUserModalState extends State<AddUserModal> {
 
   Widget _buildPasswordField(bool isLoading) {
     return Container(
+      height: 50,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         border: Border.all(
           color: _passwordError != null ? Colors.red : Colors.black,
@@ -422,7 +478,7 @@ class _AddUserModalState extends State<AddUserModal> {
                 hintText: 'Enter password',
                 hintStyle: TextStyle(color: Colors.grey[600]),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
               ),
               style: const TextStyle(
                 fontSize: 16,

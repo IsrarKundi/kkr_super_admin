@@ -93,6 +93,7 @@ class User {
     String id;
     String username;
     String role;
+    String email;
     DateTime createdAt;
     dynamic lastActive;
 
@@ -100,6 +101,7 @@ class User {
         required this.id,
         required this.username,
         required this.role,
+        required this.email,
         required this.createdAt,
         required this.lastActive,
     });
@@ -108,6 +110,7 @@ class User {
         id: json["id"],
         username: json["username"],
         role: json["role"],
+        email: json["email"] ?? "",
         createdAt: DateTime.parse(json["createdAt"]),
         lastActive: json["lastActive"],
     );
@@ -116,6 +119,7 @@ class User {
         "id": id,
         "username": username,
         "role": role,
+        "email": email,
         "createdAt": createdAt.toIso8601String(),
         "lastActive": lastActive,
     };
