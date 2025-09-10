@@ -9,6 +9,7 @@ class MenuService {
   static const String _addMenuItemEndpoint = '/kitchen/menu/add-menu-item';
   static const String _updateMenuItemEndpoint = '/kitchen/menu/update-menu-item';
   static const String _getItemsBySectionEndpoint = '/kitchen/menu/items-by-section';
+  static const String _deleteMenuItemEndpoint = '/kitchen/menu/delete-menu-item';
 
   /// Get authorization token from SharedPreferences
   static Future<String?> _getToken() async {
@@ -188,6 +189,44 @@ class MenuService {
       final responseData = jsonDecode(response.body);
       log("Get Items By Section Response Data: $responseData Status Code: ${response.statusCode}");
       
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': responseData,
+        };
+      } else {
+        return {
+          'success': false,
+          'data': responseData
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
+  /// Delete menu item
+  static Future<Map<String, dynamic>> deleteMenuItem({
+    required String itemId,
+  }) async {
+    try {
+      final token = await _getToken();
+      final url = Uri.parse('$baseUrl$_deleteMenuItemEndpoint/$itemId');
+
+      final response = await http.delete(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      final responseData = jsonDecode(response.body);
+      log("Delete Menu Item Response Data: $responseData Status Code: ${response.statusCode}");
+
       if (response.statusCode == 200) {
         return {
           'success': true,

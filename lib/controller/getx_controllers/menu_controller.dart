@@ -233,6 +233,36 @@ class MenuGetxController extends GetxController {
     }
   }
 
+  /// Delete menu item
+  Future<bool> deleteMenuItem({
+    required String itemId,
+    required BuildContext context,
+  }) async {
+    try {
+      isAddingMenuItem.value = true;
+
+      final result = await MenuService.deleteMenuItem(
+        itemId: itemId,
+      );
+
+      if (result['success']) {
+        showNativeSuccessSnackbar(context ,result['data']['message'] ?? 'Menu item deleted successfully');
+        await refreshMenuItems();
+        return true;
+      } else {
+        final errorMessage = result['data']['message'] ?? 'Failed to delete menu item';
+        showNativeErrorSnackbar(context ,errorMessage);
+        return false;
+      }
+    } catch (e) {
+      showNativeErrorSnackbar(context ,'Delete menu item failed: ${e.toString()}');
+      print('Delete menu item error: $e');
+      return false;
+    } finally {
+      isAddingMenuItem.value = false;
+    }
+  }
+
   /// Clear all data
   void clearData() {
     // Clear menu items data

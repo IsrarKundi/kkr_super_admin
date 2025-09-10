@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:khaabd_web/controller/getx_controllers/menu_controller.dart';
 import 'package:khaabd_web/screens/menu/add_menu_item.dart';
+import 'package:khaabd_web/screens/menu/delete_menu_item_modal.dart';
 import 'package:khaabd_web/screens/menu/tabs/menu_items_tab.dart';
 import 'package:khaabd_web/screens/widgets/dashboard_header.dart';
 import 'package:khaabd_web/utils/colors.dart';
@@ -21,7 +22,9 @@ class _MenuScreenState extends State<MenuScreen> {
   int _tab = 0;
   bool _showAddMenuItemModal = false;
   bool _showEditMenu = false;
+  bool _showDeleteModal = false;
   Datum? _editingItem;
+  Datum? _deletingItem;
 
   // Mock data for Deals (keeping this for deals tab)
   final List<Map<String, String>> _deals = List.generate(12, (i) => {
@@ -118,47 +121,62 @@ Future<void> _handleAddMenuItem(String menuItemName, String foodSection, String 
   }
 
   void _handleDeleteItem(dynamic item) {
-    String itemName = '';
     if (item is Datum) {
-      itemName = item.name;
+      // Show custom delete modal for menu items
+      setState(() {
+        _deletingItem = item;
+        _showDeleteModal = true;
+      });
     } else if (item is Map<String, String>) {
-      itemName = item[_tab == 0 ? 'menuItem' : 'dealItems'] ?? '';
-    }
+      // Keep AlertDialog for deals
+      String itemName = item[_tab == 0 ? 'menuItem' : 'dealItems'] ?? '';
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete Item'),
-          content: Text('Are you sure you want to delete $itemName?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                // TODO: Implement API call to delete item
-                Navigator.of(context).pop();
-                print('Deleted item: $itemName');
-                if (_tab == 0) {
-                  // Refresh menu items after deletion
-                  menuController.refreshMenuItems();
-                } else {
-                  // Handle deals deletion
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Delete Item'),
+            content: Text('Are you sure you want to delete $itemName?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  print('Deleted deal: $itemName');
                   setState(() {
-                    if (item is Map<String, String>) {
-                      _deals.remove(item);
-                    }
+                    _deals.remove(item);
                   });
-                }
-              },
-              child: const Text('Delete', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        );
-      },
-    );
+                },
+                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
+
+  void _closeDeleteModal() {
+    setState(() {
+      _showDeleteModal = false;
+      _deletingItem = null;
+    });
+  }
+
+  Future<void> _confirmDelete() async {
+    if (_deletingItem != null) {
+      final success = await menuController.deleteMenuItem(
+        itemId: _deletingItem!.id,
+        context: context,
+      );
+
+      if (success) {
+        _closeDeleteModal();
+      }
+    }
   }
 
   Widget _buildTabContent() {
@@ -270,6 +288,13 @@ Future<void> _handleAddMenuItem(String menuItemName, String foodSection, String 
           AddMenuItemModal(
             onClose: _closeAddMenuItemModal,
             editingItem: _editingItem,
+          ),
+        // Delete Menu Item Modal
+        if (_showDeleteModal && _deletingItem != null)
+          DeleteMenuItemModal(
+            item: _deletingItem!,
+            onClose: _closeDeleteModal,
+            onConfirm: _confirmDelete,
           ),
       ],
     );
