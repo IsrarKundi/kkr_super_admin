@@ -21,7 +21,7 @@ class _MenuScreenState extends State<MenuScreen> {
   int _tab = 0;
   bool _showAddMenuItemModal = false;
   bool _showEditMenu = false;
-  Map<String, String>? _editingItem;
+  Datum? _editingItem;
 
   // Mock data for Deals (keeping this for deals tab)
   final List<Map<String, String>> _deals = List.generate(12, (i) => {
@@ -90,6 +90,7 @@ Future<void> _handleAddMenuItem(String menuItemName, String foodSection, String 
     description: description,
     takeAwayPacking: takeawayPacking, // This should be the packing ID from API
     ingredients: apiIngredients,
+    context: context,
   );
 
   if (success) {
@@ -97,12 +98,17 @@ Future<void> _handleAddMenuItem(String menuItemName, String foodSection, String 
   }
 }
   // Edit inventory modal methods
-  void _showEditInventoryModalMethod(Map<String, String> item) {
-    setState(() {
-      _editingItem = item;
-      _showAddMenuItemModal = true;
-    });
-  }
+   void _showEditInventoryModalMethod(dynamic item) {
+     if (item is Datum) {
+       setState(() {
+         _editingItem = item;
+         _showAddMenuItemModal = true;
+       });
+     } else {
+       // For deals, not implemented
+       print('Edit not implemented for deals');
+     }
+   }
 
   void _closeEditInventoryModal() {
     setState(() {
@@ -259,25 +265,12 @@ Future<void> _handleAddMenuItem(String menuItemName, String foodSection, String 
             ],
           ),
         ),
-        // Transfer to Kitchen Modal
+        // Add/Edit Menu Item Modal
         if (_showAddMenuItemModal)
           AddMenuItemModal(
             onClose: _closeAddMenuItemModal,
-            // onSave: _handleAddMenuItem,
+            editingItem: _editingItem,
           ),
-        // Edit Kitchen Inventory Modal
-        if (_showAddMenuItemModal)
-  AddMenuItemModal(
-    onClose: _closeAddMenuItemModal,
-    // onSave: _handleAddMenuItem,
-    // isEditMode: _editingItem != null,
-    // initialMenuItemName: _editingItem?[_tab == 0 ? 'menuItem' : 'dealItems'],
-    // initialFoodSection: _editingItem?['foodSection'],
-    // initialSellingPrice: _editingItem?['sellingPrice'],
-    // initialTakeawayPacking: _editingItem?['takeawayPacking'],
-    // initialDescription: _editingItem?['description'],
-    // initialIngredients:  null,
-  ),
       ],
     );
   }

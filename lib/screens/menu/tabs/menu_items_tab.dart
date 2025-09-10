@@ -7,7 +7,7 @@ import 'package:khaabd_web/models/models/kitchen_models/get_menu_items.dart';
 
 class MenuItemsTab extends StatefulWidget {
   final MenuGetxController menuController;
-  final Function(Map<String, String>) onEditItem;
+  final Function(Datum) onEditItem;
   final Function(dynamic) onDeleteItem;
 
   const MenuItemsTab({
@@ -210,16 +210,7 @@ class _MenuItemsTabState extends State<MenuItemsTab> {
   }
 
   void _handleEditItem(Datum item) {
-    // Convert Datum to Map<String, String> format expected by the parent
-    final itemMap = {
-      'menuItem': item.name,
-      'foodSection': item.section,
-      'cost': item.totalCost.toString(),
-      'sellingPrice': item.sellingPrice.toString(),
-      'profitMargin': '${item.profitMargin.profitMarginPercent.toStringAsFixed(1)}%',
-      'description': item.description,
-    };
-    widget.onEditItem(itemMap);
+    widget.onEditItem(item);
   }
 
   String _formatSection(String section) {
@@ -250,7 +241,7 @@ class _MenuItemsTabState extends State<MenuItemsTab> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            'Total: ${widget.menuController.menuTotal.value} items',
+            '',
             style: const TextStyle(color: Colors.grey, fontSize: 14),
           ),
           Row(
@@ -262,7 +253,7 @@ class _MenuItemsTabState extends State<MenuItemsTab> {
                     : null,
               ),
               Text(
-                'Page ${widget.menuController.menuCurrentPage.value}',
+                'Page ${widget.menuController.menuCurrentPage.value} of ${((widget.menuController.menuTotal.value - 1) / 8).ceil() + 1}',
                 style: const TextStyle(fontSize: 14),
               ),
               IconButton(

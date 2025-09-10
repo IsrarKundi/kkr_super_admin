@@ -33,7 +33,7 @@ class MenuGetxController extends GetxController {
   /// Get menu items
   Future<void> getMenuItems({
     int page = 1,
-    int limit = 13,
+    int limit = 8,
     bool showLoading = true,
   }) async {
     try {
@@ -109,6 +109,7 @@ class MenuGetxController extends GetxController {
     int page = 1,
     int limit = 50,
     bool showLoading = true,
+    required BuildContext context,
   }) async {
     try {
       if (showLoading) {
@@ -130,11 +131,11 @@ class MenuGetxController extends GetxController {
         print('Items by section loaded successfully: ${itemsBySection.length} items');
       } else {
         print('Failed to load items by section: ${result['data']['message'] ?? 'Unknown error'}');
-        showErrorSnackbar(result['data']['message'] ?? 'Failed to load items');
+        showNativeErrorSnackbar(context ,result['data']['message'] ?? 'Failed to load items');
       }
     } catch (e) {
       print('Get items by section error: $e');
-      showErrorSnackbar('Failed to load items: ${e.toString()}');
+      showNativeErrorSnackbar(context ,'Failed to load items: ${e.toString()}');
     } finally {
       if (showLoading) {
         isLoadingItemsBySection.value = false;
@@ -150,6 +151,7 @@ class MenuGetxController extends GetxController {
     required String description,
     required String takeAwayPacking,
     required List<Map<String, dynamic>> ingredients,
+    required BuildContext context,
   }) async {
     try {
       isAddingMenuItem.value = true;
@@ -164,19 +166,67 @@ class MenuGetxController extends GetxController {
       );
 
       if (result['success']) {
-        showSuccessSnackbar(result['data']['message'] ?? 'Menu item added successfully');
+        showNativeSuccessSnackbar(context ,result['data']['message'] ?? 'Menu item added successfully');
         // Refresh menu items to reflect changes
+              isAddingMenuItem.value = false;
+
         await refreshMenuItems();
         return true;
       } else {
         // Show error message from backend
         final errorMessage = result['data']['message'] ?? 'Failed to add menu item';
-        showErrorSnackbar(errorMessage);
+        showNativeErrorSnackbar(context ,errorMessage);
         return false;
       }
     } catch (e) {
-      showErrorSnackbar('Add menu item failed: ${e.toString()}');
+      showNativeErrorSnackbar(context ,'Add menu item failed: ${e.toString()}');
       print('Add menu item error: $e');
+      return false;
+    } finally {
+      isAddingMenuItem.value = false;
+    }
+  }
+
+  /// Update menu item
+  Future<bool> updateMenuItem({
+    required String itemId,
+    required String menuItemName,
+    required String foodSection,
+    required int sellingPrice,
+    required String description,
+    required String takeAwayPacking,
+    required List<Map<String, dynamic>> ingredients,
+    required BuildContext context,
+  }) async {
+    try {
+      isAddingMenuItem.value = true;
+
+      final result = await MenuService.updateMenuItem(
+        itemId: itemId,
+        menuItemName: menuItemName,
+        foodSection: foodSection,
+        sellingPrice: sellingPrice,
+        description: description,
+        takeAwayPacking: takeAwayPacking,
+        ingredients: ingredients,
+      );
+
+      if (result['success']) {
+        showNativeSuccessSnackbar(context ,result['data']['message'] ?? 'Menu item updated successfully');
+              isAddingMenuItem.value = false;
+
+        // Refresh menu items to reflect changes
+        await refreshMenuItems();
+        return true;
+      } else {
+        // Show error message from backend
+        final errorMessage = result['data']['message'] ?? 'Failed to update menu item';
+        showNativeErrorSnackbar(context ,errorMessage);
+        return false;
+      }
+    } catch (e) {
+      showNativeErrorSnackbar(context ,'Update menu item failed: ${e.toString()}');
+      print('Update menu item error: $e');
       return false;
     } finally {
       isAddingMenuItem.value = false;

@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:khaabd_web/models/utils/snackbars.dart';
 import 'package:khaabd_web/widgets/custom_textfield.dart';
 import 'package:khaabd_web/widgets/gradient_button.dart';
 import 'package:khaabd_web/widgets/outlined_button.dart';
 import 'package:khaabd_web/controller/getx_controllers/menu_controller.dart';
 import 'package:khaabd_web/models/models/kitchen_models/get_items_by_section_model.dart';
+import 'package:khaabd_web/models/models/kitchen_models/get_menu_items.dart';
 
 class AddMenuItemModal extends StatefulWidget {
-  final VoidCallback onClose;
-  const AddMenuItemModal({
-    Key? key,
-    required this.onClose,
-  }) : super(key: key);
+   final VoidCallback onClose;
+   final Datum? editingItem;
+   const AddMenuItemModal({
+     Key? key,
+     required this.onClose,
+     this.editingItem,
+   }) : super(key: key);
 
   @override
   State<AddMenuItemModal> createState() => _AddMenuItemModalState();
@@ -24,6 +28,8 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
   final TextEditingController _sellingPriceController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
+  late Datum? editingItem;
+
   String? _selectedSection;
   String? _selectedPacking;
   List<Map<String, dynamic>> _ingredients = [];
@@ -34,6 +40,31 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
 
   bool _isFetchingSectionItems = false;
   bool _isAddingMenuItem = false; // for button/loading control
+
+  @override
+  void initState() {
+    super.initState();
+    editingItem = widget.editingItem;
+    if (editingItem != null) {
+      _menuItemNameController.text = editingItem!.name;
+      _sellingPriceController.text = editingItem!.sellingPrice.toString();
+      _descriptionController.text = editingItem!.description;
+      // Capitalize first letter for dropdown
+      _selectedSection = editingItem!.section[0].toUpperCase() + editingItem!.section.substring(1);
+      // Note: takeAwayPacking is not in the model, so skip for now
+      _editingIngredients = editingItem!.ingredients.map((ing) => {
+        'itemId': ing.itemId,
+        'quantity': ing.quantity,
+      }).toList();
+      // Trigger section select to populate dropdowns
+      if (_selectedSection != null) {
+        _onSectionSelect(_selectedSection!);
+      }
+    }
+  }
+
+  String? _editingTakeAwayPackingId;
+  List<Map<String, dynamic>> _editingIngredients = [];
 
   @override
   void dispose() {
@@ -61,13 +92,43 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
     await menuController.getItemsBySection(
       kitchenSection: section.toLowerCase().replaceAll(' ', '-'),
       limit: 50,
+      showLoading: false,
+      context: context,
     );
     final list = menuController.itemsBySection;
     setState(() {
       _packingOptions = list.where((item) => (item.category?.toLowerCase() ?? '') == 'packing').toList();
       _kitchenOptions = list.where((item) => (item.category?.toLowerCase() ?? '') == 'kitchen').toList();
       _isFetchingSectionItems = false;
+      // If editing, populate ingredients
+      if (editingItem != null) {
+        _populateEditingData();
+      }
     });
+  }
+
+  void _populateEditingData() {
+    if (editingItem == null) return;
+    // Populate ingredients
+    _ingredients.clear();
+    for (var ing in _editingIngredients) {
+      final itemId = ing['itemId'];
+      final quantity = ing['quantity'];
+      final kitchenItem = _kitchenOptions.firstWhere(
+        (item) => item.kitchenItemId == itemId,
+        orElse: () => _kitchenOptions.first,
+      );
+      if (kitchenItem.kitchenItemId != null) {
+        _ingredients.add({
+          'kitchenItem': kitchenItem,
+          'quantity': TextEditingController(text: quantity.toString()),
+          'unitCost': TextEditingController(),
+          'totalCost': TextEditingController(),
+        });
+        _onKitchenItemChanged(_ingredients.length - 1, kitchenItem);
+      }
+    }
+    // Note: Packing not populated since not in model
   }
 
   void _addIngredient() {
@@ -139,13 +200,13 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
 
   Future<void> _handleAddMenuItem() async {
     if (!_canSubmit) {
-      Get.snackbar('Missing Info', 'Please fill all required fields.');
+      showNativeErrorSnackbar(context, 'Please fill all required fields and add at least one ingredient.');
       return;
     }
     setState(() => _isAddingMenuItem = true);
 
     final packingId = _packingOptions.firstWhere(
-      (e) => e.itemName == _selectedPacking, 
+      (e) => e.itemName == _selectedPacking,
       orElse: () => _packingOptions.first,
     ).kitchenItemId ?? '';
     final ingredientsApiList = _ingredients.map((x) => {
@@ -153,14 +214,29 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
       'quantity': int.tryParse((x['quantity'] as TextEditingController).text) ?? 0
     }).toList();
 
-    final success = await menuController.addMenuItem(
-      menuItemName: _menuItemNameController.text.trim(),
-      foodSection: _selectedSection!,
-      sellingPrice: int.tryParse(_sellingPriceController.text) ?? 0,
-      description: _descriptionController.text.trim(),
-      takeAwayPacking: packingId,
-      ingredients: ingredientsApiList,
-    );
+    bool success;
+    if (editingItem != null) {
+      success = await menuController.updateMenuItem(
+        itemId: editingItem!.id,
+        menuItemName: _menuItemNameController.text.trim(),
+        foodSection: _selectedSection!.toLowerCase().replaceAll(' ', '-'),
+        sellingPrice: int.tryParse(_sellingPriceController.text) ?? 0,
+        description: _descriptionController.text.trim(),
+        takeAwayPacking: packingId,
+        ingredients: ingredientsApiList,
+        context: context,
+      );
+    } else {
+      success = await menuController.addMenuItem(
+        menuItemName: _menuItemNameController.text.trim(),
+        foodSection: _selectedSection!.toLowerCase().replaceAll(' ', '-'),
+        sellingPrice: int.tryParse(_sellingPriceController.text) ?? 0,
+        description: _descriptionController.text.trim(),
+        takeAwayPacking: packingId,
+        ingredients: ingredientsApiList,
+        context: context,
+      );
+    }
 
     if (success) {
       await menuController.getMenuItems(); // refresh list
@@ -207,8 +283,8 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Spacer(),
-                        const Text(
-                          "Add New Menu Item",
+                        Text(
+                          editingItem != null ? "Update Menu Item" : "Add New Menu Item",
                           style: TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.w600,
@@ -486,7 +562,7 @@ class _AddMenuItemModalState extends State<AddMenuItemModal> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: GradientButton(
-                            text: _isAddingMenuItem ? 'Adding Menu Item...' : 'Add Menu Item',
+                            text: _isAddingMenuItem ? (editingItem != null ? 'Updating Menu Item...' : 'Adding Menu Item...') : (editingItem != null ? 'Update Menu Item' : 'Add Menu Item'),
                             onPressed: _isAddingMenuItem ? null : _handleAddMenuItem,
                             height: 48,
                           ),
